@@ -128,6 +128,8 @@ Did NOT enjoy:
 {disliked_block}
 
 STRICT PLATFORM RULE: Only recommend titles available on one of these platforms: {platform_block}. {rent_note} Do not recommend anything on a platform not in that list. If uncertain whether a title is on a listed platform, skip it.
+
+Recommendations may come from any era — classic films, cult favorites, and older shows are equally valid as recent releases. Do not bias toward titles from the last few years.
 {sensitivity_block}
 Return exactly {n} recommendations. For confidence: 90-100 = near-certain they'll love it, 70-89 = strong match, 50-69 = decent match, below 50 = uncertain."""
 
