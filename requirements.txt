@@ -2,3 +2,4 @@ streamlit
 anthropic
 python-dotenv
 requests
+psycopg2-binary
