@@ -1,12 +1,19 @@
 import json
 import streamlit as st
 from db import get_conn, init_db
-from recommend import build_context, get_recommendations, rescore_saved
+from recommend import build_context, get_recommendations, rescore_saved, filter_recommendations
 import tmdb as tmdb_client
+
+try:
+    from streamlit_theme import apply_theme  # vendored alongside this file
+except Exception:  # pragma: no cover - theme is cosmetic
+    def apply_theme(*_a, **_k):
+        pass
 
 init_db()
 
 st.set_page_config(page_title="Movie Tracker", page_icon="🎬", layout="wide")
+apply_theme()
 st.title("Movie & Show Tracker")
 
 STARS = {None: "—", 1: "★☆☆☆☆", 2: "★★☆☆☆", 3: "★★★☆☆", 4: "★★★★☆", 5: "★★★★★"}
@@ -17,8 +24,116 @@ def confidence_color(c: int) -> str:
     if c >= 50: return "🟠"
     return "🔴"
 
-tab_rec, tab_saved, tab_lib, tab_platforms, tab_settings = st.tabs(
-    ["Get Recommendations", "Saved List", "Library", "Platforms", "Settings"]
+RATING_OPTS = ["No rating", "★☆☆☆☆ (1)", "★★☆☆☆ (2)", "★★★☆☆ (3)", "★★★★☆ (4)", "★★★★★ (5)"]
+
+
+def _trigger(label: str, flag_key: str, btn_key: str) -> None:
+    """Render a button that reveals an inline panel (guarded by flag_key)."""
+    if not st.session_state.get(flag_key):
+        if st.button(label, key=btn_key):
+            st.session_state[flag_key] = True
+            st.rerun()
+
+
+def watched_trigger(uid: str) -> None:
+    _trigger("✓ Mark watched", f"watch_{uid}", f"mw_{uid}")
+
+
+def watched_body(uid: str, title: str, mtype: str, genre, year) -> bool:
+    """Inline 'watched' panel with an optional rating. On save, writes the title
+    into the Library (media) so it shapes future recs. Returns True once saved."""
+    flag = f"watch_{uid}"
+    if not st.session_state.get(flag):
+        return False
+    with st.container(border=True):
+        st.caption(f"Watched **{title}** — rate it now, or log it without a rating.")
+        liked = st.radio("Liked?", ["Yes", "No"], horizontal=True, key=f"wl_{uid}")
+        rating_sel = st.select_slider("Rating", options=RATING_OPTS, value="No rating", key=f"wr_{uid}")
+        rating_val = None if rating_sel == "No rating" else RATING_OPTS.index(rating_sel)
+        c1, c2, c3 = st.columns(3)
+        do_save   = c1.button("Save to Library", type="primary", key=f"ws_{uid}")
+        do_norate = c2.button("Watched, no rating", key=f"wn_{uid}")
+        do_cancel = c3.button("Cancel", key=f"wc_{uid}")
+
+    def _close():
+        for k in (flag, f"wl_{uid}", f"wr_{uid}"):
+            st.session_state.pop(k, None)
+
+    if do_cancel:
+        _close()
+        st.rerun()
+    if do_save or do_norate:
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT INTO media (title, type, genre, year, liked, rating, notes) VALUES (?,?,?,?,?,?,?)",
+                (title, mtype or "movie", genre or None,
+                 int(year) if year else None, int(liked == "Yes"),
+                 (None if do_norate else rating_val), None),
+            )
+        _close()
+        return True
+    return False
+
+
+def exclude_trigger(uid: str) -> None:
+    _trigger("🚫 Exclude", f"excl_{uid}", f"ex_{uid}")
+
+
+def exclude_body(uid: str, title: str, year, mtype) -> bool:
+    """Inline exclude-with-reason panel. On confirm, writes to the exclusions
+    table (fed into future recommendation prompts). Returns True once saved."""
+    flag = f"excl_{uid}"
+    if not st.session_state.get(flag):
+        return False
+    with st.container(border=True):
+        reason = st.text_input(
+            "Why exclude? (used to steer future recommendations away from this)",
+            key=f"exr_{uid}",
+            placeholder="e.g. too gory · not into this franchise · already seen it elsewhere",
+        )
+        c1, c2 = st.columns(2)
+        do_conf = c1.button("Confirm exclude", type="primary", key=f"exc_{uid}")
+        do_cxl  = c2.button("Cancel", key=f"exx_{uid}")
+
+    def _close():
+        for k in (flag, f"exr_{uid}"):
+            st.session_state.pop(k, None)
+
+    if do_cxl:
+        _close()
+        st.rerun()
+    if do_conf:
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT INTO exclusions (title, year, type, reason) VALUES (?,?,?,?)",
+                (title, int(year) if year else None, mtype, reason.strip() or None),
+            )
+        _close()
+        return True
+    return False
+
+
+def _fetch_tmdb(mid: int, title: str) -> None:
+    """Callback: look up the title on TMDB, stash the top hit for review."""
+    hits = tmdb_client.search(title)
+    st.session_state[f"tmdb_fetch_{mid}"] = hits[0] if hits else {}
+
+
+def _apply_tmdb(mid: int) -> None:
+    """Callback: write the stashed TMDB hit onto the library row. Runs before the
+    rerun, so it fires reliably even though the button lives inside an expander."""
+    hit = st.session_state.get(f"tmdb_fetch_{mid}")
+    if hit:
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE media SET title=?, genre=?, year=?, type=? WHERE id=?",
+                (hit["title"], hit.get("genre"), hit.get("year"), hit.get("type"), mid),
+            )
+    st.session_state[f"tmdb_fetch_{mid}"] = None
+
+
+tab_rec, tab_saved, tab_lib, tab_excluded, tab_platforms, tab_settings = st.tabs(
+    ["Get Recommendations", "Watchlist", "Library", "Excluded", "Platforms", "Settings"]
 )
 
 # ── Recommendations ──────────────────────────────────────────────────────────
@@ -28,22 +143,49 @@ with tab_rec:
     if "rec_results" not in st.session_state:
         st.session_state.rec_results = []
 
-    col_n, col_btn = st.columns([3, 1])
-    n = col_n.slider("How many?", 1, 10, 5, label_visibility="collapsed")
-    col_n.caption(f"Generate {n} recommendations")
+    # ── Configure, then generate ──────────────────────────────────────────────
+    TYPE_CHOICES = {"Movies & shows": "both", "Movies only": "movie", "Shows only": "show"}
+    with st.container(border=True):
+        st.caption(
+            "Suggestions never include titles you've excluded, already watched, or "
+            "saved to your watchlist — and every one is verified as available on an "
+            "active platform before it's shown."
+        )
+        cfg1, cfg2 = st.columns([2, 1])
+        type_label = cfg1.radio("Show me", list(TYPE_CHOICES), horizontal=True, key="rec_type")
+        media_type = TYPE_CHOICES[type_label]
+        n = cfg2.slider("How many?", 1, 10, 5, key="rec_n")
 
-    if col_btn.button("Generate", type="primary"):
-        with st.spinner("Thinking…"):
-            ctx = build_context()
-            st.session_state.rec_results = get_recommendations(ctx, n)
+        with get_conn() as conn:
+            active_plats = [
+                r["name"] for r in conn.execute(
+                    "SELECT name FROM platforms WHERE active = 1 ORDER BY name"
+                ).fetchall()
+            ]
+        if active_plats:
+            st.caption("Filtering to your active platforms: " + ", ".join(active_plats))
+        else:
+            st.warning("No active platforms — turn some on in the Platforms tab, or suggestions won't be platform-filtered.")
+
+        if st.button("Generate", type="primary", use_container_width=True):
+            with st.spinner("Thinking… (verifying availability on your platforms)"):
+                ctx = build_context()
+                st.session_state.rec_results = get_recommendations(ctx, n, media_type=media_type)
+            if not st.session_state.rec_results:
+                st.warning(
+                    "Nothing matched your filters and active platforms. Try widening "
+                    "the type, enabling more platforms, or generating again."
+                )
 
     recs = st.session_state.rec_results
     if recs:
-        # Check which titles are already saved
-        with get_conn() as conn:
-            saved_titles = {r["title"] for r in conn.execute(
-                "SELECT title FROM saved_recommendations WHERE status = 'pending'"
-            ).fetchall()}
+        # Live guard: re-apply the hard filters on every rerun so a card vanishes
+        # the moment it's excluded, watched, or added to the watchlist.
+        live_ctx = build_context()
+        visible = filter_recommendations(recs, live_ctx, "both")
+        if len(visible) != len(recs):
+            st.session_state.rec_results = visible
+            recs = visible
 
         for i, rec in enumerate(recs):
             flag = rec.get("sensitivity_flag", False)
@@ -71,11 +213,9 @@ with tab_rec:
                 if flag and rec.get("sensitivity_note"):
                     st.warning(f"Sensitivity note: {rec['sensitivity_note']}")
 
-                already_saved = rec["title"] in saved_titles
-                if already_saved:
-                    st.caption("✓ Already in saved list")
-                else:
-                    if st.button("Save to list", key=f"save_rec_{i}"):
+                b1, b2, b3 = st.columns(3)
+                with b1:
+                    if st.button("＋ Add to watchlist", key=f"save_rec_{i}"):
                         with st.spinner("Fetching cast from TMDB…"):
                             tmdb_cast = tmdb_client.get_cast_by_title(
                                 rec["title"], rec.get("year"), rec.get("type", "movie")
@@ -98,20 +238,33 @@ with tab_rec:
                             )
                         st.success(f"Saved: {rec['title']}")
                         st.rerun()
+                with b2:
+                    watched_trigger(f"rec{i}")
+                with b3:
+                    exclude_trigger(f"rec{i}")
 
-# ── Saved List ────────────────────────────────────────────────────────────────
+                if watched_body(f"rec{i}", rec["title"], rec.get("type", "movie"), None, rec.get("year")):
+                    st.success(f"Added to Library: {rec['title']}")
+                    st.rerun()
+                if exclude_body(f"rec{i}", rec["title"], rec.get("year"), rec.get("type", "movie")):
+                    st.success(f"Excluded: {rec['title']}")
+                    st.rerun()
+
+# ── Watchlist ─────────────────────────────────────────────────────────────────
 with tab_saved:
-    st.header("Saved List")
+    st.header("Watchlist")
+    st.caption("Titles you've saved to watch. Mark one watched to move it into your "
+               "Library (with an optional rating); exclude one to keep it out of future recommendations.")
 
     with get_conn() as conn:
-        saved = conn.execute(
-            "SELECT * FROM saved_recommendations ORDER BY confidence DESC, date_saved DESC"
+        pending = conn.execute(
+            "SELECT * FROM saved_recommendations WHERE status='pending' "
+            "ORDER BY confidence DESC, date_saved DESC"
         ).fetchall()
 
-    pending = [r for r in saved if r["status"] == "pending"]
-    done    = [r for r in saved if r["status"] != "pending"]
-
-    if pending:
+    if not pending:
+        st.info("Your watchlist is empty. Add titles from the Get Recommendations tab.")
+    else:
         col_regen, _ = st.columns([2, 5])
         if col_regen.button("Regenerate confidence scores", type="secondary"):
             with st.spinner("Re-scoring…"):
@@ -135,6 +288,7 @@ with tab_saved:
             dot = confidence_color(conf)
             flag = row["sensitivity_flag"]
             prefix = "⚠️ " if flag else ""
+            uid = f"save{row['id']}"
 
             with st.container(border=True):
                 col_t, col_c = st.columns([5, 1])
@@ -149,7 +303,6 @@ with tab_saved:
                 cast = json.loads(row["cast_list"]) if row["cast_list"] else []
                 if cast:
                     st.markdown(f"**Cast:** {', '.join(cast)}")
-
                 if row["overview"]:
                     st.markdown(f"**Overview:** {row['overview']}")
                 if row["reason"]:
@@ -157,40 +310,67 @@ with tab_saved:
                 if flag and row["sensitivity_note"]:
                     st.warning(f"Sensitivity note: {row['sensitivity_note']}")
 
-                col_w, col_s, col_d = st.columns(3)
-                if col_w.button("Mark watched", key=f"watched_{row['id']}"):
-                    with get_conn() as conn:
-                        conn.execute(
-                            "UPDATE saved_recommendations SET status='watched' WHERE id=?",
-                            (row["id"],),
-                        )
-                    st.rerun()
-                if col_s.button("Skip", key=f"skip_{row['id']}"):
-                    with get_conn() as conn:
-                        conn.execute(
-                            "UPDATE saved_recommendations SET status='skipped' WHERE id=?",
-                            (row["id"],),
-                        )
-                    st.rerun()
-                if col_d.button("Remove", key=f"del_saved_{row['id']}"):
+                col_w, col_e, col_d = st.columns(3)
+                with col_w:
+                    watched_trigger(uid)
+                with col_e:
+                    exclude_trigger(uid)
+                with col_d:
+                    if st.button("Remove", key=f"del_saved_{row['id']}"):
+                        with get_conn() as conn:
+                            conn.execute("DELETE FROM saved_recommendations WHERE id=?", (row["id"],))
+                        st.rerun()
+
+                if watched_body(uid, row["title"], row["type"] or "movie", None, row["year"]):
                     with get_conn() as conn:
                         conn.execute("DELETE FROM saved_recommendations WHERE id=?", (row["id"],))
+                    st.success(f"Moved to Library: {row['title']}")
                     st.rerun()
-    else:
-        st.info("No saved recommendations yet. Generate some on the Get Recommendations tab.")
-
-    if done:
-        with st.expander(f"Watched / Skipped ({len(done)})"):
-            for row in done:
-                st.markdown(f"- **{row['title']}** — _{row['status']}_")
-                col_restore, col_remove = st.columns([1, 4])
-                if col_restore.button("Restore", key=f"restore_{row['id']}"):
+                if exclude_body(uid, row["title"], row["year"], row["type"]):
                     with get_conn() as conn:
-                        conn.execute(
-                            "UPDATE saved_recommendations SET status='pending' WHERE id=?",
-                            (row["id"],),
-                        )
+                        conn.execute("DELETE FROM saved_recommendations WHERE id=?", (row["id"],))
+                    st.success(f"Excluded: {row['title']}")
                     st.rerun()
+
+# ── Excluded ──────────────────────────────────────────────────────────────────
+with tab_excluded:
+    st.header("Excluded")
+    st.caption("Titles the recommender will never suggest again. Your reason is fed into "
+               "future requests so it also steers away from similar picks.")
+
+    with get_conn() as conn:
+        excluded = conn.execute(
+            "SELECT * FROM exclusions ORDER BY date_added DESC, id DESC"
+        ).fetchall()
+
+    if not excluded:
+        st.info("Nothing excluded yet. Use 🚫 Exclude on a recommendation or watchlist item.")
+    else:
+        for row in excluded:
+            with st.container(border=True):
+                c1, c2 = st.columns([6, 1])
+                yr = f" ({row['year']})" if row["year"] else ""
+                reason = f" — _{row['reason']}_" if row["reason"] else ""
+                c1.markdown(f"**{row['title']}**{yr}{reason}")
+                if c2.button("Un-exclude", key=f"unexcl_{row['id']}"):
+                    with get_conn() as conn:
+                        conn.execute("DELETE FROM exclusions WHERE id=?", (row["id"],))
+                    st.rerun()
+
+    st.divider()
+    st.subheader("Add an exclusion manually")
+    with st.form("add_exclusion"):
+        c1, c2 = st.columns([3, 1])
+        ex_title = c1.text_input("Title")
+        ex_year  = c2.number_input("Year", min_value=1900, max_value=2030, value=2024, step=1)
+        ex_reason = st.text_input("Reason (optional)", placeholder="why avoid this / similar titles")
+        if st.form_submit_button("Add exclusion") and ex_title.strip():
+            with get_conn() as conn:
+                conn.execute(
+                    "INSERT INTO exclusions (title, year, reason) VALUES (?,?,?)",
+                    (ex_title.strip(), int(ex_year), ex_reason.strip() or None),
+                )
+            st.rerun()
 
 # ── Library ──────────────────────────────────────────────────────────────────
 with tab_lib:
@@ -203,65 +383,78 @@ with tab_lib:
     with st.expander("Add new entry", expanded=False):
         rating_opts = ["No rating", "★☆☆☆☆ (1)", "★★☆☆☆ (2)", "★★★☆☆ (3)", "★★★★☆ (4)", "★★★★★ (5)"]
 
-        st.markdown("**Step 1 — Search TMDB**")
-        col_q, col_btn = st.columns([4, 1])
-        query = col_q.text_input("Title", label_visibility="collapsed", placeholder="e.g. Knives Out")
-        if col_btn.button("Search", type="primary"):
-            if query.strip():
-                with st.spinner("Searching…"):
-                    st.session_state.tmdb_results = tmdb_client.search(query.strip())
-                st.session_state.tmdb_selected = None
-                st.session_state.last_query = query.strip()
+        # Form state — held in session_state so TMDB search can prefill the
+        # fields. (A widget's value= is ignored once its key already exists, so
+        # prefilling has to write session_state before the widget is drawn.)
+        for k, d in [("add_title", ""), ("add_type", "movie"), ("add_genre", ""), ("add_year", 2024)]:
+            st.session_state.setdefault(k, d)
 
-        if st.session_state.tmdb_results:
-            st.markdown("**Step 2 — Which one?**")
-            options = [
-                f"{r['title']} ({r['year'] or '?'}) — {r['type']} — {r['genre'] or 'unknown genre'}"
-                for r in st.session_state.tmdb_results
-            ] + ["None of these — enter manually"]
-            choice = st.radio("Results", options, label_visibility="collapsed")
-            choice_idx = options.index(choice)
-            if choice_idx < len(st.session_state.tmdb_results):
-                sel = st.session_state.tmdb_results[choice_idx]
-                if sel.get("overview"):
-                    st.caption(sel["overview"])
-                st.session_state.tmdb_selected = sel
-            else:
-                st.session_state.tmdb_selected = None
+        st.caption("Type the details in yourself, or search TMDB below to auto-fill them.")
 
-        if st.session_state.tmdb_results:
-            st.markdown("**Step 3 — Confirm & add**")
+        # ── Optional TMDB search to prefill the fields ──
+        # In a form so pressing Enter in the box submits the search.
+        with st.form("tmdb_search_form"):
+            col_q, col_btn = st.columns([4, 1])
+            col_q.text_input("Search TMDB", key="add_query", label_visibility="collapsed",
+                             placeholder="Search TMDB… e.g. Knives Out — then press Enter")
+            do_search = col_btn.form_submit_button("Search")
+        if do_search:
+            q = st.session_state.add_query.strip()
+            with st.spinner("Searching…"):
+                st.session_state.tmdb_results = tmdb_client.search(q) if q else []
+            st.session_state.pop("add_pick", None)
 
-        sel = st.session_state.tmdb_selected
-        f_title = sel["title"] if sel else (st.session_state.last_query or "")
-        f_type  = sel["type"]  if sel else "movie"
-        f_genre = (sel["genre"] or "") if sel else ""
-        f_year  = (sel["year"] or 2024) if sel else 2024
+        results = st.session_state.tmdb_results
+        if results:
+            opts = [
+                f"{r['title']} ({r['year'] or '?'}) · {r['type']} · {r['genre'] or 'unknown genre'}"
+                for r in results
+            ]
+            if st.session_state.get("add_pick", 0) >= len(opts):
+                st.session_state.add_pick = 0
+            pick = st.radio("Which one?", list(range(len(opts))),
+                            format_func=lambda i: opts[i], key="add_pick")
+            sel = results[pick]
+            if sel.get("overview"):
+                st.caption(sel["overview"])
+            if st.button("⬇ Use this — fill the fields below"):
+                st.session_state.add_title = sel["title"]
+                st.session_state.add_type  = sel["type"]
+                st.session_state.add_genre = sel["genre"] or ""
+                st.session_state.add_year  = max(1900, min(2030, int(sel["year"] or 2024)))
+                st.session_state.tmdb_results = []
+                st.session_state.pop("add_pick", None)
+                st.rerun()
 
+        st.divider()
+
+        # ── The entry itself — always editable, whether typed or prefilled ──
         col1, col2 = st.columns(2)
-        inp_title = col1.text_input("Title", value=f_title, key="inp_title")
-        inp_type  = col2.selectbox("Type", ["movie", "show"],
-                                   index=0 if f_type == "movie" else 1, key="inp_type")
+        col1.text_input("Title", key="add_title", placeholder="Required")
+        col2.selectbox("Type", ["movie", "show"], key="add_type")
         col3, col4 = st.columns(2)
-        inp_genre = col3.text_input("Genre", value=f_genre, key="inp_genre")
-        inp_year  = col4.number_input("Year", min_value=1900, max_value=2030,
-                                      value=int(f_year), step=1, key="inp_year")
-        liked_sel  = st.radio("Liked?", ["Yes", "No"], horizontal=True)
-        rating_sel = st.select_slider("Rating", options=rating_opts, value="No rating", key="inp_rating")
+        col3.text_input("Genre", key="add_genre")
+        col4.number_input("Year", min_value=1900, max_value=2030, step=1, key="add_year")
+        liked_sel  = st.radio("Liked?", ["Yes", "No"], horizontal=True, key="add_liked")
+        rating_sel = st.select_slider("Rating", options=rating_opts, value="No rating", key="add_rating")
         rating_val = None if rating_sel == "No rating" else rating_opts.index(rating_sel)
-        notes = st.text_area("Notes (optional)", key="inp_notes")
+        notes = st.text_area("Notes (optional)", key="add_notes")
 
         if st.button("Add to library", type="primary", key="btn_add"):
-            if inp_title.strip():
+            title = st.session_state.add_title.strip()
+            if not title:
+                st.warning("Enter a title first — type one in, or search TMDB and click “Use this”.")
+            else:
                 with get_conn() as conn:
                     conn.execute(
                         "INSERT INTO media (title, type, genre, year, liked, rating, notes) VALUES (?,?,?,?,?,?,?)",
-                        (inp_title.strip(), inp_type, inp_genre or None, int(inp_year),
-                         int(liked_sel == "Yes"), rating_val, notes or None),
+                        (title, st.session_state.add_type, st.session_state.add_genre or None,
+                         int(st.session_state.add_year), int(liked_sel == "Yes"), rating_val, notes or None),
                     )
-                st.success(f"Added: {inp_title.strip()}")
-                for k in ("tmdb_results", "tmdb_selected", "last_query"):
-                    st.session_state[k] = [] if k == "tmdb_results" else None if k == "tmdb_selected" else ""
+                st.success(f"Added: {title}")
+                for k in ("add_title", "add_type", "add_genre", "add_year", "add_query",
+                          "add_notes", "add_rating", "add_liked", "add_pick", "tmdb_results"):
+                    st.session_state.pop(k, None)
                 st.rerun()
 
     with get_conn() as conn:
@@ -301,38 +494,25 @@ with tab_lib:
                     st.rerun()
 
                 fetch_key = f"tmdb_fetch_{row['id']}"
-                if fetch_key not in st.session_state:
-                    st.session_state[fetch_key] = None
 
                 col_fetch, col_del = st.columns(2)
-                if col_fetch.button("Fetch from TMDB", key=f"fetch_{row['id']}"):
-                    with st.spinner("Looking up…"):
-                        hits = tmdb_client.search(row["title"])
-                    st.session_state[fetch_key] = hits[0] if hits else {}
-
-                fetched = st.session_state.get(fetch_key)
-                if fetched is not None:
-                    if fetched:
-                        st.info(
-                            f"**{fetched['title']}** ({fetched['year']}) — {fetched['genre'] or 'no genre'}  \n"
-                            f"_{fetched.get('overview', '')}_"
-                        )
-                        if st.button("Apply this info", key=f"apply_{row['id']}"):
-                            with get_conn() as conn:
-                                conn.execute(
-                                    "UPDATE media SET title=?, genre=?, year=?, type=? WHERE id=?",
-                                    (fetched["title"], fetched["genre"], fetched["year"],
-                                     fetched["type"], row["id"]),
-                                )
-                            st.session_state[fetch_key] = None
-                            st.rerun()
-                    else:
-                        st.warning("No TMDB match found.")
-
+                col_fetch.button("Fetch from TMDB", key=f"fetch_{row['id']}",
+                                 on_click=_fetch_tmdb, args=(row["id"], row["title"]))
                 if col_del.button("Remove", key=f"del_{row['id']}"):
                     with get_conn() as conn:
                         conn.execute("DELETE FROM media WHERE id = ?", (row["id"],))
                     st.rerun()
+
+                fetched = st.session_state.get(fetch_key)
+                if fetched:
+                    st.info(
+                        f"**{fetched['title']}** ({fetched['year']}) — {fetched['genre'] or 'no genre'}  \n"
+                        f"_{fetched.get('overview', '')}_"
+                    )
+                    st.button("Apply this info", key=f"apply_{row['id']}",
+                              on_click=_apply_tmdb, args=(row["id"],))
+                elif fetched == {}:
+                    st.warning("No TMDB match found.")
     else:
         st.info("No entries yet.")
 

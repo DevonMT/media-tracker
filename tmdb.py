@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -45,7 +46,14 @@ def _parse_item(item: dict) -> dict | None:
     }
 
 
-def search(query: str) -> list[dict]:
+def search(query: str, limit: int = 12) -> list[dict]:
+    """Search TMDB (movies + shows).
+
+    Two fixes for common short titles like "Red": people are filtered out (they'd
+    crowd the list), and — crucially — titles that EXACTLY match the query are
+    floated to the top (by popularity). TMDB's multi-search interleaves movies and
+    TV and ranks the exact-title film low (e.g. "RED" (2010) lands ~15th behind a
+    dozen "Red…" shows), so without this boost it falls off the end of the list."""
     resp = requests.get(
         f"{BASE_URL}/search/multi",
         headers=_headers(),
@@ -53,12 +61,76 @@ def search(query: str) -> list[dict]:
         timeout=8,
     )
     resp.raise_for_status()
+
+    items = resp.json().get("results", [])
+    q = _norm_for_match(query)
+    exact, rest = [], []
+    for item in items:
+        title = item.get("title") or item.get("name") or ""
+        (exact if _norm_for_match(title) == q else rest).append(item)
+    # Exact matches first (most popular exact match wins); the rest keep TMDB's
+    # own relevance order.
+    exact.sort(key=lambda it: -float(it.get("popularity") or 0))
+
     results = []
-    for item in resp.json().get("results", [])[:7]:
-        parsed = _parse_item(item)
+    for item in exact + rest:
+        parsed = _parse_item(item)  # returns None for people / unsupported types
         if parsed:
             results.append(parsed)
+        if len(results) >= limit:
+            break
     return results
+
+
+def _norm_for_match(s: str) -> str:
+    """Loose title normalization for fuzzy equality (lowercase, alnum + spaces)."""
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", (s or "").lower()).split())
+
+
+def find_match(title: str, year: int | None, media_type: str) -> dict | None:
+    """Best TMDB hit for a title. Rejects candidates that only partially overlap
+    with extra invented words (e.g. a hallucinated "Knives Out anthology" won't
+    match the real "Knives Out"), so callers can treat None as "does not exist"."""
+    hits = search(title, limit=12)
+    req = _norm_for_match(title)
+
+    def ok(cand: dict) -> bool:
+        cand_title = _norm_for_match(cand["title"])
+        # Accept an exact match, or when the request is contained in a fuller
+        # official title (subtitles). Reject when the request has EXTRA words the
+        # real title lacks (that's the hallucination signature).
+        return bool(req) and (req == cand_title or req in cand_title)
+
+    typed = [h for h in hits if h["type"] == media_type and ok(h)]
+    for r in typed:
+        if year and r["year"] == year:
+            return r
+    if typed:
+        return typed[0]
+
+    any_type = [h for h in hits if ok(h)]
+    for r in any_type:
+        if year and r["year"] == year:
+            return r
+    return any_type[0] if any_type else None
+
+
+def get_watch_providers(tmdb_id: int, media_type: str, region: str = "US") -> dict:
+    """Return {'flatrate': [...], 'rent': [...], 'buy': [...], 'free': [...],
+    'ads': [...]} of provider names available in `region` (empty on any miss)."""
+    endpoint = "movie" if media_type == "movie" else "tv"
+    resp = requests.get(
+        f"{BASE_URL}/{endpoint}/{tmdb_id}/watch/providers",
+        headers=_headers(),
+        timeout=8,
+    )
+    if resp.status_code != 200:
+        return {}
+    region_data = resp.json().get("results", {}).get(region, {})
+    return {
+        key: [p["provider_name"] for p in region_data.get(key, [])]
+        for key in ("flatrate", "rent", "buy", "free", "ads")
+    }
 
 
 def get_cast_by_title(title: str, year: int | None, media_type: str) -> list[str]:
