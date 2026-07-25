@@ -1,0 +1,23 @@
+name: movie-tracker
+
+services:
+  movie:
+    build: .
+    container_name: movie-tracker
+    restart: unless-stopped
+    ports:
+      - "8551:8501"          # http://<mini-ip>:8551
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: warehouse
+      MOVIE_SCHEMA: movie
+    env_file:
+      - ./secrets/app.env    # PGUSER, PGPASSWORD, ANTHROPIC_API_KEY, TMDB_API_TOKEN
+    networks:
+      - warehouse
+
+networks:
+  warehouse:
+    external: true
+    name: dataplatform_default   # join the data platform's network to reach `postgres`
