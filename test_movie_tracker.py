@@ -184,24 +184,6 @@ class _FakeBlock:
         self.input = {"recommendations": recs}
 
 
-class _FakeResp:
-    def __init__(self, recs):
-        self.content = [_FakeBlock(recs)]
-
-
-class _FakeMessages:
-    def __init__(self, recs):
-        self._recs = recs
-
-    def create(self, **_kw):
-        return _FakeResp(self._recs)
-
-
-class _FakeClient:
-    def __init__(self, recs):
-        self.messages = _FakeMessages(recs)
-
-
 def _fake_find_match(title, year, mtype):
     key = (title or "").strip().lower()
     if "anthology" in key:  # hallucinated bundle
@@ -237,7 +219,11 @@ class TestGetRecommendationsPipeline(_DBTestCase):
             r.setdefault("platform", "guessed")
 
         ctx = recommend.build_context()
-        with mock.patch.object(recommend.anthropic, "Anthropic", return_value=_FakeClient(canned)), \
+        # The app's only AI seam is ai.ask_structured, so that is what a test
+        # should stand in for. Mocking the Anthropic SDK would now be mocking
+        # something this app does not import.
+        with mock.patch.object(recommend.ai, "ask_structured",
+                               return_value={"recommendations": canned}), \
              mock.patch.object(recommend.tmdb_client, "find_match", side_effect=_fake_find_match), \
              mock.patch.object(recommend.tmdb_client, "get_watch_providers", side_effect=_fake_providers):
             out = recommend.get_recommendations(ctx, n=2, media_type="movie")
@@ -247,6 +233,32 @@ class TestGetRecommendationsPipeline(_DBTestCase):
         arrival = next(r for r in out if r["title"] == "Arrival")
         self.assertIn("Netflix", arrival["platform"])
         self.assertNotEqual(arrival["platform"], "guessed")
+
+    def test_truncated_reply_returns_empty_not_crash(self):
+        # A max_tokens-truncated reply is still a valid object, just missing the
+        # "recommendations" key. Must degrade to [] rather than KeyError.
+        ctx = recommend.build_context()
+        with mock.patch.object(recommend.ai, "ask_structured", return_value={}):
+            out = recommend.get_recommendations(ctx, n=3, media_type="both")
+        self.assertEqual(out, [])
+
+    def test_broker_unavailable_degrades_instead_of_crashing(self):
+        # The broker refuses for reasons nobody can fix mid-session: budget
+        # spent, subscription not permitted, mini rebooting. None of those
+        # should take the app down -- an empty list is a worse evening, not a
+        # broken app.
+        ctx = recommend.build_context()
+        with mock.patch.object(recommend.ai, "ask_structured",
+                               side_effect=recommend.ai.BrokerError("budget_exceeded")):
+            out = recommend.get_recommendations(ctx, n=3, media_type="both")
+        self.assertEqual(out, [])
+
+    def test_rescore_survives_a_broker_failure(self):
+        # Returning [] here means "no new scores", which leaves the saved
+        # watchlist untouched. Raising would blank the page.
+        with mock.patch.object(recommend.ai, "ask_structured",
+                               side_effect=recommend.ai.BrokerError("down")):
+            self.assertEqual(recommend.rescore_saved([], {"liked": []}), [])
 
 
 # ──────────────────────────── UI tests via AppTest ────────────────────────────
