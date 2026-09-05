@@ -1,6 +1,6 @@
 import os
 import re
-import anthropic
+import ai
 from dotenv import load_dotenv
 from db import get_conn
 import tmdb as tmdb_client
@@ -252,19 +252,19 @@ Recommendations may come from any era — classic films, cult favorites, and old
 {avoid_block}{exclusion_block}{sensitivity_block}
 Return {ask_n} recommendations. For confidence: 90-100 = near-certain they'll love it, 70-89 = strong match, 50-69 = decent match, below 50 = uncertain."""
 
-    client = anthropic.Anthropic()
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=3000,
-        tools=[REC_TOOL],
-        tool_choice={"type": "tool", "name": "submit_recommendations"},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = []
-    for block in resp.content:
-        if block.type == "tool_use" and block.name == "submit_recommendations":
-            raw = block.input["recommendations"]
-            break
+    try:
+        # Each rec is verbose (overview + cast + reason), so the over-generated
+        # ask_n needs headroom — too small a budget truncates the reply, which
+        # comes back missing the "recommendations" key entirely.
+        out = ai.ask_structured(prompt, REC_TOOL["input_schema"],
+                                max_tokens=min(8000, 1024 + ask_n * 400))
+    except ai.BrokerError as exc:
+        # No recommendations is a worse evening, not a broken app.
+        print(f"[recommend] broker unavailable: {exc}")
+        return []
+    # Still defensive: a truncated reply can be a valid object with the key
+    # missing. Degrade to no results rather than raising KeyError.
+    raw = out.get("recommendations") or []
 
     # Hard filter #1: type / excluded / library / watchlist.
     recs = filter_recommendations(raw, ctx, media_type)
@@ -300,15 +300,10 @@ Re-score each of the following titles with a confidence (0-100) that the viewer 
 Titles to score:
 {titles_block}"""
 
-    client = anthropic.Anthropic()
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1500,
-        tools=[RESCORE_TOOL],
-        tool_choice={"type": "tool", "name": "submit_scores"},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    for block in resp.content:
-        if block.type == "tool_use" and block.name == "submit_scores":
-            return block.input["scores"]
-    return []
+    try:
+        out = ai.ask_structured(prompt, RESCORE_TOOL["input_schema"], max_tokens=1500)
+    except ai.BrokerError as exc:
+        # Keep the existing scores rather than blanking the watchlist.
+        print(f"[rescore] broker unavailable: {exc}")
+        return []
+    return out.get("scores") or []
