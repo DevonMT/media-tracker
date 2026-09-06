@@ -14,6 +14,18 @@ init_db()
 
 st.set_page_config(page_title="Movie Tracker", page_icon="🎬", layout="wide")
 apply_theme()
+
+# The way back to the hub. Streamlit gives an app no chrome of its own, so on
+# movies.devondoes.dev this page was a dead end — reachable from devondoes.dev
+# and with no route out except the browser's back button.
+st.markdown(
+    '<a href="https://devondoes.dev/" style="display:inline-flex;align-items:center;'
+    'gap:7px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.04em;'
+    'color:var(--color-text-faint);text-decoration:none">'
+    '<span style="width:6px;height:6px;border-radius:50%;'
+    'background:var(--color-accent);display:inline-block"></span>devondoes</a>',
+    unsafe_allow_html=True,
+)
 st.title("Movie & Show Tracker")
 
 STARS = {None: "—", 1: "★☆☆☆☆", 2: "★★☆☆☆", 3: "★★★☆☆", 4: "★★★★☆", 5: "★★★★★"}
