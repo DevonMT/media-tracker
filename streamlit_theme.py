@@ -1,5 +1,13 @@
 """
-BI Console theme for Streamlit apps.
+Mesh theme for Streamlit apps.
+
+The palette the devondoes.dev estate uses — the platform, the admin portal,
+the finance dashboard and the drill. This file was the BI Console theme, which
+is devontroedel.com's identity; the movie tracker lives on movies.devondoes.dev
+and belongs with the others.
+
+Every rule below already went through the tokens, so the move is a retarget of
+:root and nothing else.
 Usage:
     from pathlib import Path
     import sys
@@ -13,30 +21,32 @@ import streamlit as st
 _CSS = """
 <style>
 /* ── Fonts (an @import must precede every other rule, or browsers drop it) ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* ── Tokens (BI Console palette — kept in sync with the design system) ────── */
 :root {
-  --color-bg:           #0a0e1a;
-  --color-bg-elevated:  #0e1424;
-  --color-surface:      #0d1322;
-  --color-border:       rgba(255,255,255,0.08);
-  --color-text:         #f4f7fd;
-  --color-text-body:    #cdd5e8;
-  --color-text-muted:   #9aa6c2;
-  --color-text-faint:   #616d8c;
-  --color-text-dark:    #2a3450;
-  --color-accent:       #2dd4bf;
-  --color-accent-hover: #2dd4bf;
-  --color-accent-light: #5fe6d4;
-  --color-accent-soft:  rgba(45,212,191,0.12);
-  --color-amber:        #f0a868;
-  --color-amber-bg:     rgba(240,168,104,0.12);
-  --font-sans:    'Inter', system-ui, sans-serif;
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --color-bg:           #0B0D12;
+  --color-bg-elevated:  #171C26;
+  --color-surface:      #141821;
+  --color-border:       #262C38;
+  --color-text:         #E8E4DC;
+  --color-text-body:    #D3CEC4;
+  --color-text-muted:   #9AA1AE;
+  --color-text-faint:   #6B7280;
+  --color-text-dark:    #3A4150;
+  --color-accent:       #C86A3A;
+  --color-accent-hover: #E08A56;
+  --color-accent-light: #E08A56;
+  --color-accent-soft:  rgba(200,106,58,0.12);
+  /* Yellower than the accent on purpose: copper is already orange, so an
+     orange "needs attention" would read as decoration rather than a signal. */
+  --color-amber:        #E3B341;
+  --color-amber-bg:     rgba(227,179,65,0.12);
+  --font-sans:    'Inter Tight', system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
   --radius:    12px;
-  --radius-sm: 8px;
+  --radius-sm: 10px;
 }
 
 /* ── App shell ──────────────────────────────────────────────────────────── */
