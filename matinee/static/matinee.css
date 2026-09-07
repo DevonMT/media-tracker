@@ -138,3 +138,9 @@ details.form[open] > summary::before { content: '\2212 '; }
    reads as a list of people rather than a form. */
 .picker-list { display: grid; border-top: 1px solid var(--line); margin-top: 6px; }
 .picker-list select { width: auto; font-size: 12.5px; padding: 6px 9px; }
+
+/* A party is a shortcut for ticking people, so it sits with them rather than
+   looking like a separate control. */
+.parties { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin: 6px 0 2px; }
+.party-pick { cursor: pointer; font-family: inherit; }
+.party-pick:hover { border-color: var(--accent); color: var(--ink); }

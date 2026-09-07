@@ -73,7 +73,8 @@ def home(request: Request):
     who = me(request)
     return page(request, "recommend.html", who=who,
                 circle=store.circle(who["id"]), picks=[], note=None,
-                chosen=[who["id"]], saved=store.saved(who["id"]))
+                chosen=[who["id"]], parties=store.parties(who["id"]),
+                saved=store.saved(who["id"]))
 
 
 @app.post("/recommend", response_class=HTMLResponse)
@@ -86,7 +87,8 @@ async def do_recommend(request: Request):
 
     if variant(request) != "full":
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
-                    picks=[], chosen=chosen, saved=store.saved(who["id"]),
+                    picks=[], chosen=chosen, parties=store.parties(who["id"]),
+                    saved=store.saved(who["id"]),
                     note="Recommendations are part of the full version of Matinee.")
 
     try:
@@ -95,13 +97,15 @@ async def do_recommend(request: Request):
     except ai.BrokerError as exc:
         # Degrade, never crash: the library and the reviews are still there.
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
-                    picks=[], chosen=chosen, saved=store.saved(who["id"]),
+                    picks=[], chosen=chosen, parties=store.parties(who["id"]),
+                    saved=store.saved(who["id"]),
                     note="Could not reach the recommender (%s)." % exc)
 
     labels = {p["id"]: p["label"] for p in out.get("people", [])}
     return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
                 picks=out["picks"], note=out.get("note"), chosen=chosen,
-                labels=labels, rewatch=rewatch, saved=store.saved(who["id"]))
+                labels=labels, rewatch=rewatch, parties=store.parties(who["id"]),
+                saved=store.saved(who["id"]))
 
 
 @app.post("/keep")
