@@ -47,7 +47,7 @@ document.querySelectorAll('.party-pick').forEach(function (b) {
       <button type="button" class="chip party-pick"
               data-who="{{ p.countable | join(',') }}"
               title="{% if p.countable | length < p.members %}{{ p.members - (p.countable | length) }} of them have not shared their taste with you, so they cannot be counted{% else %}Pick everyone in {{ p.name }}{% endif %}">
-        {{ p.icon or '🎉' }} {{ p.name }}
+        <img class="avatar sm" alt="" src="https://devondoes.dev/avatar/p/{{ p.id | urlencode }}"> {{ p.name }}
         <span class="chip-count">{{ p.countable | length }}{% if p.countable | length < p.members %} of {{ p.members }}{% endif %}</span>
       </button>
     {% endfor %}
