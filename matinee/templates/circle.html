@@ -1,3 +1,4 @@
+{% import '_avatar.html' as av with context %}
 {% extends "base.html" %}
 {% block title %}Circle · Matinee{% endblock %}
 {% block body %}
@@ -16,7 +17,7 @@
   <div class="rowlist">
     {% for p in shared %}
     <div class="rowitem">
-      <span class="avatar {{ p.accent or '' }}">{{ p.icon or '·' }}</span>
+      {{ av.avatar(p) }}
       <span class="grow"><strong>{{ p.name or p.email }}</strong>
         <span class="meta">
           {% if p.visibility == 'open' %}
@@ -39,7 +40,7 @@
     <p class="sub">People you are connected to on devondoes.dev.</p>
     {% for f in friends %}
     <form method="post" action="/circle/pick" class="rowitem">
-      <span class="avatar {{ f.accent or '' }}">{{ f.icon or '·' }}</span>
+      {{ av.avatar(f) }}
       <span class="grow"><strong>{{ f.name or f.email }}</strong>
         <span class="meta">{{ f.email }}</span></span>
       <input type="hidden" name="id" value="{{ f.id }}">
@@ -84,7 +85,7 @@
   <div class="rowlist">
     {% for p in counted %}
     <div class="rowitem">
-      <span class="avatar {{ p.accent or '' }}">{{ p.icon or '·' }}</span>
+      {{ av.avatar(p) }}
       <span class="grow"><strong>{{ p.name or p.email }}</strong>
         <span class="meta">{{ p.reviews }} rated
           {%- if p.visibility == 'open' %} · you may read their ratings
