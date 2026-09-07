@@ -18,15 +18,28 @@ apply_theme()
 # The way back to the hub. Streamlit gives an app no chrome of its own, so on
 # movies.devondoes.dev this page was a dead end — reachable from devondoes.dev
 # and with no route out except the browser's back button.
+# The estate bar. Streamlit gives an app no chrome, so this is the same six
+# elements every other app has, written out by hand — the shared stylesheet
+# cannot be linked into a Streamlit page, but the markup contract can be met.
+#
+# target="_self" because Streamlit rewrites markdown links to open a new tab,
+# and the way back to the hub is navigation, not a citation. Identity and sign
+# out are left out until this app comes off Streamlit: they need a script, and
+# Streamlit is the one place that is not worth fighting for them.
 st.markdown(
-    '<a href="https://devondoes.dev/" style="display:inline-flex;align-items:center;'
-    'gap:7px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.04em;'
-    'color:var(--color-text-faint);text-decoration:none">'
+    '<header class="ds-bar" style="display:flex;align-items:center;gap:8px;'
+    'font-family:var(--font-mono);font-size:11.5px;letter-spacing:.04em">'
+    '<a href="https://devondoes.dev/" target="_self" '
+    'style="display:inline-flex;align-items:center;gap:7px;'
+    'color:var(--color-text-muted);text-decoration:none">'
     '<span style="width:6px;height:6px;border-radius:50%;'
-    'background:var(--color-accent);display:inline-block"></span>devondoes</a>',
+    'background:var(--color-accent);display:inline-block"></span>devondoes.dev</a>'
+    '<span style="color:var(--color-text-faint)">/</span>'
+    '<span style="color:var(--color-text)">matinee</span>'
+    '</header>',
     unsafe_allow_html=True,
 )
-st.title("Movie & Show Tracker")
+st.title("Matinee")
 
 STARS = {None: "—", 1: "★☆☆☆☆", 2: "★★☆☆☆", 3: "★★★☆☆", 4: "★★★★☆", 5: "★★★★★"}
 

@@ -1,0 +1,185 @@
+/* Generated from devondoes/ds/tokens.css — do not edit here.
+   Edit the source and run `node ds/sync.mjs`. `--check` fails on drift. */
+/*
+ * The token contract.
+ *
+ * WHAT IS SHARED IS THE NAMES, NOT THE COLOURS. Every app on devondoes.dev
+ * declares this same set of roles; each may answer them differently. That is
+ * what lets a dialog, a toast or a form control be written once and still look
+ * like it belongs in a grocery list, a watchlist and an admin page.
+ *
+ * The values below are the enamelware palette from Mise, serving as the
+ * default. An app with its own identity overrides the values and keeps the
+ * names — it must not invent new ones for the same job, because a shared
+ * component can only reach a token every app has.
+ *
+ * THE THREE-STATE RULE, which is the part that is easy to get wrong.
+ *
+ * A viewer has three states, not two. An explicit choice stamps
+ * data-theme="dark" or data-theme="light" on the root; the default "system"
+ * setting stamps NOTHING, and there only prefers-color-scheme separates them.
+ * So:
+ *
+ *   :root                        the complete light palette. Every token is
+ *                                declared here and nowhere else first.
+ *   @media (prefers-color-scheme: dark)
+ *     :root:not([data-theme='light'])
+ *                                redefines tokens only. Guarded, so an explicit
+ *                                light choice beats a dark OS.
+ *   :root[data-theme='dark']     redefines them again, so the toggle also wins
+ *                                in the other direction.
+ *
+ * A colour whose only definition sits inside a media or [data-theme] block
+ * never applies in the un-stamped state, which is most viewers. That is the
+ * classic unreadable-page bug.
+ */
+
+:root {
+  /* ---- Ground and ink ---------------------------------------------------
+     bg       the page itself
+     surface  anything raised off it: cards, sheets, bars
+     ink      body text
+     muted    the second layer — hints, headings above a group, metadata.
+              Score this one. It is used everywhere, and at 3.31:1 an entire
+              layer of the interface reads as washed out rather than quiet.
+     line     borders and dividers                                        */
+  --bg: #f2f4f3;
+  --surface: #ffffff;
+  --ink: #12171a;
+  --muted: #535f66;
+  /* A third text level, for metadata that is genuinely optional — a timestamp,
+     an id. NEVER body text: this one is allowed to sit below the 4.5:1 that
+     normal text needs, which is exactly why it must not carry meaning. */
+  --faint: #6f7c83;
+  --line: #d6dedc;
+
+  /* ---- Accent -----------------------------------------------------------
+     accent       the one colour that means "this is the action"
+     accent-ink   what is legible ON accent. Never assume white: a light accent
+                  in a dark theme needs dark text, and getting this wrong is
+                  invisible until somebody reads a button.
+     accent-soft  a tinted ground for selected rows and quiet emphasis
+     accent-deep  hover/pressed, and text-on-bg where accent itself is too
+                  light to pass contrast                                  */
+  --accent: #0a6a60;
+  --accent-ink: #ffffff;
+  --accent-soft: #dbeeea;
+  --accent-deep: #064c45;
+
+  /* ---- Semantic, and separate from the accent ---------------------------
+     Danger is not a second brand colour. Keep it for destructive and wrong. */
+  --danger: #a3302a;
+  --danger-soft: #f8e5e3;
+  /* Success. Semantic, and not a second accent — keep it for "this worked". */
+  --ok: #1c6b4b;
+  --fav: #7a5a06;
+  --fav-soft: #f6edd6;
+
+  /* ---- Depth ------------------------------------------------------------
+     Tokens, not literals. A scrim and a shadow are the two things most often
+     hard-coded, and a dark scrim over a dark page is invisible.           */
+  --seg: #e5e9e8;
+  --scrim: rgba(12, 23, 26, 0.45);
+  --scrim-strong: rgba(12, 23, 26, 0.58);
+  --shadow: 0 12px 30px -14px rgba(12, 23, 26, 0.28);
+  /* Accent-tinted, because it falls from a floating action button that is
+     itself accent — a neutral shadow under a coloured button reads dirty. */
+  --shadow-fab: 0 12px 24px -8px rgba(10, 106, 96, 0.45);
+  --shadow-dialog: 0 30px 80px -20px rgba(12, 23, 26, 0.4);
+  --press: rgba(12, 23, 26, 0.08);
+  --control-rim: #b9c4c2;
+  --badge-bg: #c8d2d0;
+
+  /* ---- Transient notices ------------------------------------------------
+     A deliberately contrasting chip: toasts, undo pills. NAMED FOR THE JOB,
+     because using --ink as a background only reads as dark while ink happens
+     to be dark — in a dark theme that is a white chip with white text.    */
+  --notice-bg: #12171a;
+  --notice-ink: #f4f7f6;
+  --notice-action: #6fd8c2;
+
+  /* ---- Layout -----------------------------------------------------------
+     The one width in the estate that decides sidebar-versus-tab-bar. See
+     usePointer for why this is a width and hover affordances are not.     */
+  --nav-h: 62px;
+  --desktop: 900px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0e1214;
+    --surface: #171e21;
+    --ink: #e9eeef;
+    --muted: #9dabb1;
+    --faint: #7d8b91;
+    --line: #263135;
+
+    /* Dark text on the accent here, not white. The dark theme's accent is a
+       light mint; white on it fails outright. */
+    --accent: #5ad3c0;
+    --accent-ink: #05201c;
+    --accent-soft: #12312d;
+    --accent-deep: #8ae6d6;
+
+    --danger: #ff9a90;
+    --danger-soft: #3a1f1c;
+    --ok: #6fd39f;
+    --fav: #e3bd5c;
+    --fav-soft: #332a12;
+
+    --seg: #1e262a;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --scrim-strong: rgba(0, 0, 0, 0.72);
+    --shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7);
+    --shadow-fab: 0 12px 24px -8px rgba(0, 0, 0, 0.6);
+    --shadow-dialog: 0 30px 80px -20px rgba(0, 0, 0, 0.75);
+    --press: rgba(255, 255, 255, 0.09);
+    --control-rim: #3d4a4f;
+    --badge-bg: #2b3639;
+
+    /* Raised, not inverted: a near-white toast in a dark room is a flashbulb. */
+    --notice-bg: #263135;
+    --notice-ink: #eef3f4;
+    --notice-action: #5ad3c0;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0e1214;
+  --surface: #171e21;
+  --ink: #e9eeef;
+  --muted: #9dabb1;
+  --faint: #7d8b91;
+  --line: #263135;
+
+  --accent: #5ad3c0;
+  --accent-ink: #05201c;
+  --accent-soft: #12312d;
+  --accent-deep: #8ae6d6;
+
+  --danger: #ff9a90;
+  --danger-soft: #3a1f1c;
+  --ok: #6fd39f;
+  --fav: #e3bd5c;
+  --fav-soft: #332a12;
+
+  --seg: #1e262a;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --scrim-strong: rgba(0, 0, 0, 0.72);
+  --shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7);
+  --shadow-fab: 0 12px 24px -8px rgba(0, 0, 0, 0.6);
+  --shadow-dialog: 0 30px 80px -20px rgba(0, 0, 0, 0.75);
+  --press: rgba(255, 255, 255, 0.09);
+  --control-rim: #3d4a4f;
+  --badge-bg: #2b3639;
+
+  --notice-bg: #263135;
+  --notice-ink: #eef3f4;
+  --notice-action: #5ad3c0;
+
+  color-scheme: dark;
+}
