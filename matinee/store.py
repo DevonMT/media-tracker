@@ -56,6 +56,11 @@ def new_id():
 
 # ── who you are, and who is in your circle ──────────────────────────────────
 
+def profile_of(user_id):
+    """The emoji and colour somebody chose on the platform, if any."""
+    return q("SELECT icon, accent FROM profile WHERE user_id=%s", (user_id,), one=True)
+
+
 def person(user_id):
     return q('SELECT id, email, name FROM "user" WHERE id=%s', (user_id,), one=True)
 
@@ -77,17 +82,44 @@ def circle(viewer_id):
     """
     rows = q(
         """
-        SELECT u.id, u.name, u.email, s.visibility,
+        SELECT u.id, u.name, u.email, s.visibility, p.icon, p.accent,
                (SELECT count(*) FROM review r WHERE r.user_id = u.id) AS reviews
           FROM taste_share s
           JOIN "user" u ON u.id = s.owner_id
+          LEFT JOIN profile p ON p.user_id = u.id
          WHERE s.viewer_id = %s
          ORDER BY lower(coalesce(u.name, u.email))
         """, (viewer_id,))
     me = person(viewer_id) or {"id": viewer_id, "name": None, "email": ""}
+    me = {**me, **(profile_of(viewer_id) or {})}
     mine = q("SELECT count(*) AS n FROM review WHERE user_id=%s", (viewer_id,), one=True)
     return [{**me, "visibility": "own", "reviews": mine["n"], "is_me": True}] + [
         {**r, "is_me": False} for r in rows]
+
+
+def friends_not_yet_shared(owner_id):
+    """People you know here who are not yet counted in your picks.
+
+    The platform's friends list is the estate's directory, and this is the whole
+    reason it exists: choosing a person from a list beats typing an address and
+    hoping it is the one they signed up with.
+
+    It is a DIRECTORY, not a gate. Sharing with somebody who is not a friend
+    still works below — being connected is a convenience for finding each other,
+    not a precondition for consent, and making it one would quietly turn
+    friendship into a permission.
+    """
+    return q(
+        """
+        SELECT u.id, u.name, u.email, p.icon, p.accent
+          FROM friendship f
+          JOIN "user" u ON u.id = CASE WHEN f.a_id = %s THEN f.b_id ELSE f.a_id END
+          LEFT JOIN profile p ON p.user_id = u.id
+         WHERE (f.a_id = %s OR f.b_id = %s)
+           AND NOT EXISTS (SELECT 1 FROM taste_share s
+                            WHERE s.owner_id = %s AND s.viewer_id = u.id)
+         ORDER BY lower(coalesce(u.name, u.email))
+        """, (owner_id, owner_id, owner_id, owner_id))
 
 
 def shared_by_me(owner_id):
@@ -96,8 +128,10 @@ def shared_by_me(owner_id):
     somebody without handing them your viewing history."""
     return q(
         """
-        SELECT u.id, u.name, u.email, s.visibility, s.created_at
-          FROM taste_share s JOIN "user" u ON u.id = s.viewer_id
+        SELECT u.id, u.name, u.email, s.visibility, s.created_at, p.icon, p.accent
+          FROM taste_share s
+          JOIN "user" u ON u.id = s.viewer_id
+          LEFT JOIN profile p ON p.user_id = u.id
          WHERE s.owner_id = %s ORDER BY lower(coalesce(u.name, u.email))
         """, (owner_id,))
 
