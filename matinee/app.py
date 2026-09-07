@@ -223,12 +223,38 @@ async def merge(request: Request):
 
 # ── circle ──────────────────────────────────────────────────────────────────
 
+def _circle_ctx(request, who, note=None):
+    return dict(who=who,
+                counted=[p for p in store.circle(who["id"]) if not p["is_me"]],
+                shared=store.shared_by_me(who["id"]),
+                friends=store.friends_not_yet_shared(who["id"]),
+                note=note)
+
+
 @app.get("/circle", response_class=HTMLResponse)
 def circle(request: Request):
     who = me(request)
-    return page(request, "circle.html", who=who,
-                counted=[p for p in store.circle(who["id"]) if not p["is_me"]],
-                shared=store.shared_by_me(who["id"]), note=None)
+    return page(request, "circle.html", **_circle_ctx(request, who))
+
+
+@app.post("/circle/pick")
+async def share_with_friend(request: Request):
+    """Share with somebody chosen from your friends.
+
+    The platform's directory doing its job: no address to type and no chance of
+    picking the wrong one. Their id is checked against your friends rather than
+    trusted from the form — a hidden field is a suggestion, not a fact.
+    """
+    _check_origin(request)
+    who = me(request)
+    form = await request.form()
+    wanted = form.get("id")
+    if wanted not in {f["id"] for f in store.friends_not_yet_shared(who["id"])}:
+        return page(request, "circle.html",
+                    **_circle_ctx(request, who,
+                                  "That is not somebody you are connected to."))
+    store.share(who["id"], wanted, form.get("visibility") or "blend")
+    return RedirectResponse("/circle", status_code=303)
 
 
 @app.post("/circle")
@@ -238,16 +264,12 @@ async def do_share(request: Request):
     form = await request.form()
     other = store.person_by_email((form.get("email") or "").strip())
     if not other:
-        return page(request, "circle.html", who=who,
-                    counted=[p for p in store.circle(who["id"]) if not p["is_me"]],
-                    shared=store.shared_by_me(who["id"]),
-                    note="Nobody on devondoes.dev has that address. They need an "
-                         "account before you can share with them.")
+        return page(request, "circle.html", **_circle_ctx(request, who,
+            "Nobody on devondoes.dev has that address. They need an account "
+            "before you can share with them."))
     if other["id"] == who["id"]:
-        return page(request, "circle.html", who=who,
-                    counted=[p for p in store.circle(who["id"]) if not p["is_me"]],
-                    shared=store.shared_by_me(who["id"]),
-                    note="Your own taste is always counted.")
+        return page(request, "circle.html", **_circle_ctx(request, who,
+            "Your own taste is always counted."))
     store.share(who["id"], other["id"], form.get("visibility") or "blend")
     return RedirectResponse("/circle", status_code=303)
 

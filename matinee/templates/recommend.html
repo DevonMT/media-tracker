@@ -12,6 +12,7 @@
       <label class="chip{% if p.id in chosen %} on{% endif %}">
         <input type="checkbox" name="who" value="{{ p.id }}"
                {% if p.id in chosen %}checked{% endif %}>
+        <span class="avatar sm {{ p.accent or '' }}">{{ p.icon or '·' }}</span>
         <span class="chip-name">{{ p.name or p.email }}{% if p.is_me %} (you){% endif %}</span>
         {# Said, not hidden: a floor score is only as good as its weakest
            input, and four ratings is a guess. #}

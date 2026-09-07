@@ -16,6 +16,7 @@
   <div class="rowlist">
     {% for p in shared %}
     <div class="rowitem">
+      <span class="avatar {{ p.accent or '' }}">{{ p.icon or '·' }}</span>
       <span class="grow"><strong>{{ p.name or p.email }}</strong>
         <span class="meta">
           {% if p.visibility == 'open' %}
@@ -33,8 +34,27 @@
     {% endfor %}
   </div>
 
+  {% if friends %}
+  <div class="picker-list">
+    <p class="sub">People you are connected to on devondoes.dev.</p>
+    {% for f in friends %}
+    <form method="post" action="/circle/pick" class="rowitem">
+      <span class="avatar {{ f.accent or '' }}">{{ f.icon or '·' }}</span>
+      <span class="grow"><strong>{{ f.name or f.email }}</strong>
+        <span class="meta">{{ f.email }}</span></span>
+      <input type="hidden" name="id" value="{{ f.id }}">
+      <select name="visibility" aria-label="How much">
+        <option value="blend">count me only</option>
+        <option value="open">count me, and let them read</option>
+      </select>
+      <button class="mini" type="submit">Share</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <details class="form">
-    <summary>Let somebody count your taste</summary>
+    <summary>{% if friends %}Or share with an address{% else %}Let somebody count your taste{% endif %}</summary>
     <div class="inner">
       <form method="post" action="/circle">
         <label class="field"><span>Their address on devondoes.dev</span>
@@ -50,6 +70,8 @@
            door that cannot be closed later. #}
         <p class="meta">Blend is the starting position. A recommendation never
            needed to show its inputs to produce an answer.</p>
+        <p class="meta">Being connected is a convenience for finding each other,
+           not a requirement — you can share with anyone who has an account.</p>
         <button type="submit">Share</button>
       </form>
     </div>
@@ -62,6 +84,7 @@
   <div class="rowlist">
     {% for p in counted %}
     <div class="rowitem">
+      <span class="avatar {{ p.accent or '' }}">{{ p.icon or '·' }}</span>
       <span class="grow"><strong>{{ p.name or p.email }}</strong>
         <span class="meta">{{ p.reviews }} rated
           {%- if p.visibility == 'open' %} · you may read their ratings
@@ -69,7 +92,9 @@
     </div>
     {% else %}
     <p class="empty">Nobody has shared with you yet. Only they can do that —
-       being given the app is not the same as wanting their opinion counted.</p>
+       being given the app is not the same as wanting their opinion counted.
+       <a href="https://devondoes.dev/people">Connect with people</a> so they can
+       find you.</p>
     {% endfor %}
   </div>
 </section>

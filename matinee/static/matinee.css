@@ -120,3 +120,21 @@ details.form[open] > summary::before { content: '\2212 '; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   main { padding: 26px 24px 72px; }
 }
+
+/* Personality, carried from the platform's People page so somebody is the same
+   shape everywhere on the estate. The colours are the contract's, not new ones. */
+.avatar { width: 30px; height: 30px; border-radius: 50%; display: grid;
+  place-items: center; font-size: 15px; flex: 0 0 auto;
+  background: var(--seg); border: 1px solid var(--line); }
+.avatar.sm { width: 20px; height: 20px; font-size: 11px; }
+.avatar.teal   { background: var(--accent-soft); }
+.avatar.amber  { background: var(--fav-soft); }
+.avatar.rose   { background: var(--danger-soft); }
+.avatar.violet { background: color-mix(in srgb, var(--accent) 14%, var(--seg)); }
+.avatar.sky    { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.avatar.lime   { background: color-mix(in srgb, var(--fav) 20%, var(--surface)); }
+
+/* The picker is the ordinary way in, so it sits above the address form and
+   reads as a list of people rather than a form. */
+.picker-list { display: grid; border-top: 1px solid var(--line); margin-top: 6px; }
+.picker-list select { width: auto; font-size: 12.5px; padding: 6px 9px; }
