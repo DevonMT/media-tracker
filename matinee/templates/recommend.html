@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Matinee{% endblock %}
+{% block body %}
+
+{#  The one screen that carries the whole idea. "Just me" and "me and Gran"
+    are the same feature with a different number of people ticked, which is
+    why there is one form and not two modes. #}
+<form method="post" action="/recommend" class="picker">
+  <h1>Recommend for</h1>
+  <div class="chips">
+    {% for p in circle %}
+      <label class="chip{% if p.id in chosen %} on{% endif %}">
+        <input type="checkbox" name="who" value="{{ p.id }}"
+               {% if p.id in chosen %}checked{% endif %}>
+        <span class="chip-name">{{ p.name or p.email }}{% if p.is_me %} (you){% endif %}</span>
+        {# Said, not hidden: a floor score is only as good as its weakest
+           input, and four ratings is a guess. #}
+        <span class="chip-count">{{ p.reviews }} rated</span>
+      </label>
+    {% endfor %}
+    <a class="chip add" href="/circle">+ someone</a>
+  </div>
+  <div class="row">
+    <label class="inline"><input type="checkbox" name="rewatch" {% if rewatch %}checked{% endif %}> Allow things somebody has already seen</label>
+    <button type="submit">Find something</button>
+  </div>
+</form>
+
+{% if note %}<p class="note">{{ note }}</p>{% endif %}
+
+{% if picks %}
+<div class="grid">
+  {% for p in picks %}
+  <article class="card">
+    <h3>{{ p.name }}{% if p.year %} <span class="year">{{ p.year }}</span>{% endif %}</h3>
+    {% if p.overview %}<p class="overview">{{ p.overview }}</p>{% endif %}
+    <p class="reason">{{ p.reason }}</p>
+
+    {#  The floor, named. "weakest fit: Gran, 62" is the number that decides
+        whether you put it on — an average would be the one figure that does
+        not answer the question. #}
+    <div class="scores">
+      <span class="floor" title="The lowest score in the group">
+        weakest fit: {{ labels.get(p.floor_user, 'someone') }} · {{ p.floor }}
+      </span>
+      {% for uid, s in p.scores.items() %}
+        {% if uid != p.floor_user %}
+          <span class="score">{{ labels.get(uid, 'someone') }} {{ s }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <form method="post" action="/keep" class="keep">
+      {% for f in ['name','year','kind','platform','overview','reason'] %}
+        <input type="hidden" name="{{ f }}" value="{{ p.get(f) or '' }}">
+      {% endfor %}
+      <input type="hidden" name="floor" value="{{ p.floor }}">
+      <input type="hidden" name="floor_user" value="{{ p.floor_user }}">
+      {% for uid in p.scores %}<input type="hidden" name="audience" value="{{ uid }}">{% endfor %}
+      <button class="mini" type="submit">Keep</button>
+    </form>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if saved %}
+<section class="band">
+  <h2>Kept</h2>
+  <div class="rowlist">
+    {% for s in saved %}
+    <div class="rowitem">
+      <span class="grow"><strong>{{ s.name }}</strong>
+        <span class="meta">{{ s.year or '' }}{% if s.floor_score %} · weakest fit {{ s.floor_score }}{% endif %}</span></span>
+      <form method="post" action="/keep/{{ s.id }}/drop">
+        <button class="mini ghost" type="submit">Remove</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

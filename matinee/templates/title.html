@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ t.name }} · Matinee{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>{{ t.name }}</h1>
+  <p>{{ t.year or '' }} · {{ t.kind }}{% if t.genres %} · {{ t.genres | join(', ') }}{% endif %}
+     {%- if not t.tmdb_id %} · <span class="warn">no TMDB match, so this may be a duplicate</span>{% endif %}</p>
+</div>
+{% if t.overview %}<p class="overview wide">{{ t.overview }}</p>{% endif %}
+
+<section class="band">
+  <h2>What you think</h2>
+  <form method="post" action="/title/{{ t.id }}/review" class="form">
+    {% set mine = (reviews | selectattr('id', 'equalto', me.id) | list | first) %}
+    <label class="field"><span>Rating</span>
+      <select name="rating">
+        <option value="">—</option>
+        {% for n in [1,2,3,4,5] %}
+          <option value="{{ n }}"{% if mine and mine.rating == n %} selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select></label>
+    <label class="inline"><input type="checkbox" name="liked" {% if mine and mine.liked %}checked{% endif %}> Liked it</label>
+    <label class="field"><span>Notes</span>
+      <textarea name="notes" rows="2">{{ mine.notes if mine and mine.notes else '' }}</textarea></label>
+    <div class="row">
+      <button type="submit">Save</button>
+      {% if mine %}<button class="ghost" type="submit" name="clear" value="1">Clear</button>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="band">
+  <h2>What others think</h2>
+  {# The gap between these two numbers IS the privacy promise, shown rather
+     than hidden: counted without being read. #}
+  {% set others = reviews | rejectattr('id', 'equalto', me.id) | list %}
+  {% if others %}
+    <div class="rowlist">
+      {% for r in others %}
+      <div class="rowitem">
+        <span class="grow"><strong>{{ r.name or r.email }}</strong>
+          {% if r.notes %}<span class="meta">{{ r.notes }}</span>{% endif %}</span>
+        <span class="chips"><span class="chip">{{ r.rating or '—' }}/5</span></span>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% set hidden = total - reviews | length %}
+  {% if hidden > 0 %}
+    <p class="meta">{{ hidden }} more {{ 'person has' if hidden == 1 else 'people have' }}
+       an opinion on this. They are counted in a blend but their ratings are not shown,
+       which is what sharing at "blend" means.</p>
+  {% elif not others %}
+    <p class="meta">Nobody else has an opinion on this yet.</p>
+  {% endif %}
+</section>
+
+<form method="post" action="/title/{{ t.id }}/dismiss" class="row">
+  <button class="ghost" type="submit">Not for me — stop suggesting it</button>
+</form>
+{% endblock %}

@@ -1,0 +1,90 @@
+/* Generated from devondoes/ds/base.css — do not edit here.
+   Edit the source and run `node ds/sync.mjs`. `--check` fails on drift. */
+/*
+ * Base: the things every page wants, and nothing that assumes a shape.
+ *
+ * Deliberately NOT here: `overflow: hidden` on html/body, `height: 100dvh`,
+ * and the fixed app frame. Those belong to a full-screen PWA shell and are
+ * actively wrong on a page that scrolls — see app-shell.css, which is opt-in
+ * for exactly that reason.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  /* Explicit, always. A transparent body borrows whatever ground it is
+     composited over, which is how a page ends up with one theme's text on the
+     other theme's background. */
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  /* Every press is a tap: no 300ms double-tap-zoom wait, more reliable taps in
+     an installed standalone app. */
+  touch-action: manipulation;
+}
+
+/*
+ * A visible focus ring, on keyboard focus only.
+ *
+ * :focus-visible rather than :focus, so a mouse click does not leave a ring
+ * behind — which is the reason people remove focus styling altogether and
+ * leave the interface unusable from a keyboard.
+ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Shared icon sizing — colour is inherited from the parent, never set here. */
+.icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+/*
+ * Honour the setting. Not `animation: none` — a zeroed duration still fires
+ * animationend, so anything that waits for one keeps working rather than
+ * hanging half-open.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Circle · Matinee{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>Circle</h1>
+  <p>Two separate things, on purpose. Being able to <em>reach</em> Matinee is a
+     platform grant. Whose taste is <em>counted</em> in a recommendation is this —
+     and it is granted by the person whose taste it is.</p>
+</div>
+{% if note %}<p class="note">{{ note }}</p>{% endif %}
+
+<section class="band">
+  <h2>You let these people count your taste</h2>
+  <p class="sub">One-way. Sharing with somebody does not make them share with you,
+     so you can plan a film for someone without handing them your viewing history.</p>
+  <div class="rowlist">
+    {% for p in shared %}
+    <div class="rowitem">
+      <span class="grow"><strong>{{ p.name or p.email }}</strong>
+        <span class="meta">
+          {% if p.visibility == 'open' %}
+            can see your individual ratings
+          {% else %}
+            counted in blends; your individual ratings stay hidden
+          {% endif %}
+        </span></span>
+      <form method="post" action="/circle/{{ p.id }}/stop">
+        <button class="mini ghost" type="submit">Stop</button>
+      </form>
+    </div>
+    {% else %}
+    <p class="empty">Nobody yet. Your own taste is always counted in your own picks.</p>
+    {% endfor %}
+  </div>
+
+  <details class="form">
+    <summary>Let somebody count your taste</summary>
+    <div class="inner">
+      <form method="post" action="/circle">
+        <label class="field"><span>Their address on devondoes.dev</span>
+          <input name="email" type="email" required placeholder="someone@example.com"></label>
+        <label class="field"><span>How much</span>
+          <select name="visibility">
+            <option value="blend">Count me in blends, keep my ratings private</option>
+            <option value="open">Count me, and let them read my ratings</option>
+          </select></label>
+        {# Blend is the default because it is the weaker claim. A system that can
+           recommend for a group without revealing the group's ratings is strictly
+           better than one that cannot, and building it the other way round is a
+           door that cannot be closed later. #}
+        <p class="meta">Blend is the starting position. A recommendation never
+           needed to show its inputs to produce an answer.</p>
+        <button type="submit">Share</button>
+      </form>
+    </div>
+  </details>
+</section>
+
+<section class="band">
+  <h2>These people let you count theirs</h2>
+  <p class="sub">Who you can tick on the Watch screen.</p>
+  <div class="rowlist">
+    {% for p in counted %}
+    <div class="rowitem">
+      <span class="grow"><strong>{{ p.name or p.email }}</strong>
+        <span class="meta">{{ p.reviews }} rated
+          {%- if p.visibility == 'open' %} · you may read their ratings
+          {%- else %} · counted only{% endif %}</span></span>
+    </div>
+    {% else %}
+    <p class="empty">Nobody has shared with you yet. Only they can do that —
+       being given the app is not the same as wanting their opinion counted.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

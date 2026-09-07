@@ -1,0 +1,137 @@
+/* Generated from devondoes/ds/chrome.css — do not edit here.
+   Edit the source and run `node ds/sync.mjs`. `--check` fails on drift. */
+/*
+ * The estate bar.
+ *
+ * One strip at the top of every app saying where you are, who you are, and how
+ * to leave. It exists because nine apps had nine different answers: some said
+ * "devondoes.dev" and some "devondoes", one wore the personal site's nav with a
+ * burger menu and a "Say Hi" button, and one was a link floating in Streamlit's
+ * own toolbar that opened a new tab.
+ *
+ * MARKUP CONTRACT — the same six elements in every stack, because the estate
+ * spans template strings, Astro, static HTML, Jinja, Streamlit and React, and a
+ * shared component cannot span those. A shared stylesheet can.
+ *
+ *   <header class="ds-bar">
+ *     <a class="ds-mark" href="https://devondoes.dev/">devondoes.dev</a>
+ *     <span class="ds-sep" aria-hidden="true">/</span>
+ *     <span class="ds-here">backlog</span>
+ *     <span class="ds-fill"></span>
+ *     <span class="ds-who"></span>
+ *     <button class="ds-out" type="button">Sign out</button>
+ *   </header>
+ *
+ * The mark is a LINK and the current app is not: you are already here. Both are
+ * spelled out in full — "devondoes.dev / backlog" — because the half-name read
+ * as a different estate on the apps that used it.
+ *
+ * An app with no accounts (Playfinder is public) simply omits .ds-who and
+ * .ds-out. Nothing here requires them.
+ */
+
+.ds-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  min-height: 46px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono, ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  /* Above an app's own sticky headers, which several apps have. */
+  position: relative;
+  z-index: 50;
+}
+
+.ds-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  /* A real tap target on a phone without changing the bar's height. */
+  padding: 6px 2px;
+}
+
+/* The one piece of colour in the bar, and the only thing marking it as ours. */
+.ds-mark::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+
+.ds-mark:hover,
+.ds-mark:focus-visible {
+  color: var(--ink);
+}
+
+.ds-sep {
+  color: var(--faint);
+  flex: 0 0 auto;
+}
+
+.ds-here {
+  color: var(--ink);
+  white-space: nowrap;
+  /* Truncates rather than wrapping: a wrapped bar changes the page's height
+     and pushes the app down by a row on a narrow screen. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-fill {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.ds-who {
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
+}
+
+/* Hidden until it has something to say, so the bar never shows an empty gap
+   while identity is still being fetched. */
+.ds-who:empty,
+.ds-out[hidden] {
+  display: none;
+}
+
+.ds-out {
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.ds-out:hover,
+.ds-out:focus-visible {
+  color: var(--ink);
+  border-color: var(--control-rim);
+}
+
+/*
+ * Narrow screens keep the breadcrumb and lose the address.
+ *
+ * "devondoes.dev / backlog / devon / Sign out" does not fit a phone, and the
+ * half that matters is knowing where you are and how to get back.
+ */
+@media (max-width: 520px) {
+  .ds-who {
+    display: none;
+  }
+}

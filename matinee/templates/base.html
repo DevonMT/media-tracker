@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f4f3">
+<title>{% block title %}Matinee{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<!-- Generated from devondoes/ds: tokens, reset, the estate bar, then this app. -->
+<link rel="stylesheet" href="/static/ds/tokens.css">
+<link rel="stylesheet" href="/static/ds/base.css">
+<link rel="stylesheet" href="/static/ds/chrome.css">
+<link rel="stylesheet" href="/static/matinee.css">
+</head>
+<body>
+
+<header class="ds-bar">
+  <a class="ds-mark" href="https://devondoes.dev/">devondoes.dev</a>
+  <span class="ds-sep" aria-hidden="true">/</span>
+  <span class="ds-here">matinee</span>
+  <span class="ds-fill"></span>
+  <span class="ds-who"></span>
+  <button class="ds-out" type="button" hidden>Sign out</button>
+</header>
+
+<nav class="tabs"><div class="in">
+  {% for href, label in [('/', 'Watch'), ('/library', 'Library'), ('/circle', 'Circle'), ('/settings', 'Settings')] %}
+    <a href="{{ href }}"{% if here == href %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</div></nav>
+
+<main>{% block body %}{% endblock %}</main>
+<script src="/static/ds/chrome.js" defer></script>
+</body>
+</html>

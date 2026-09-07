@@ -10,8 +10,13 @@ services:
     environment:
       PGHOST: postgres
       PGPORT: "5432"
+      # warehouse still holds the OLD movie.* tables, untouched, so the
+      # migration can be re-run and the old app still starts. The new one reads
+      # and writes `platform`, where "user" lives — reviews reference it, and
+      # Postgres has no cross-database foreign key.
       PGDATABASE: warehouse
       MOVIE_SCHEMA: movie
+      MATINEE_DB: platform
     env_file:
       - ./secrets/app.env    # PGUSER, PGPASSWORD, ANTHROPIC_API_KEY, TMDB_API_TOKEN
     networks:

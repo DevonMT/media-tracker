@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Settings · Matinee{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>Settings</h1>
+</div>
+
+<section class="band">
+  <h2>Your hard rules</h2>
+  <p class="sub">Not preferences. A rule removes a title outright, however much
+     anyone else would enjoy it — “no horror” is not “horror scores lower”.
+     Yours are yours: the others are never told a rule of yours applied.</p>
+  <div class="chips">
+    {% for r in rules %}
+      <span class="chip">{{ r.kind.replace('_', ' ') }}: {{ r.value }}
+        <form method="post" action="/settings/rule/drop" style="display:inline">
+          <input type="hidden" name="kind" value="{{ r.kind }}">
+          <input type="hidden" name="value" value="{{ r.value }}">
+          <button type="submit" title="Remove">&times;</button>
+        </form>
+      </span>
+    {% else %}
+      <span class="meta">No rules. Nothing is filtered out before scoring.</span>
+    {% endfor %}
+  </div>
+  <details class="form">
+    <summary>Add a rule</summary>
+    <div class="inner"><form method="post" action="/settings/rule">
+      <label class="field"><span>Kind</span>
+        <select name="kind">
+          <option value="never_genre">Never this genre</option>
+          <option value="never_keyword">Never anything involving</option>
+          <option value="max_runtime">Nothing longer than (minutes)</option>
+          <option value="min_year">Nothing made before (year)</option>
+        </select></label>
+      <label class="field"><span>Value</span><input name="value" required></label>
+      <button type="submit">Add</button>
+    </form></div>
+  </details>
+</section>
+
+<section class="band">
+  <h2>Where you can watch</h2>
+  <p class="sub">Shared, not personal — a subscription is a fact about the
+     household rather than a taste.</p>
+  <div class="rowlist">
+    {% for p in platforms %}
+    <form method="post" action="/settings/platform" class="rowitem">
+      <input type="hidden" name="name" value="{{ p.name }}">
+      <span class="grow"><strong>{{ p.name }}</strong></span>
+      <label class="inline"><input type="checkbox" name="active" {% if p.active %}checked{% endif %}> active</label>
+      <label class="inline"><input type="checkbox" name="can_rent" {% if p.can_rent %}checked{% endif %}> rentals</label>
+      <input name="monthly_cost" value="{{ p.monthly_cost }}" size="5" aria-label="Monthly cost">
+      <button class="mini" type="submit">Save</button>
+    </form>
+    {% endfor %}
+  </div>
+  <details class="form">
+    <summary>Add a platform</summary>
+    <div class="inner"><form method="post" action="/settings/platform">
+      <label class="field"><span>Name</span><input name="name" required></label>
+      <label class="field"><span>Monthly cost</span><input name="monthly_cost" value="0"></label>
+      <label class="inline"><input type="checkbox" name="active" checked> active</label>
+      <button type="submit">Add</button>
+    </form></div>
+  </details>
+</section>
+{% endblock %}
