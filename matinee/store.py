@@ -122,6 +122,30 @@ def friends_not_yet_shared(owner_id):
         """, (owner_id, owner_id, owner_id, owner_id))
 
 
+def parties(viewer_id):
+    """Your parties, and which of their members you may actually count.
+
+    Membership is intersected with your CIRCLE, not just your friends: being in
+    a party says you watch together, not that they let you use their ratings.
+    A party whose members have not shared is offered with the ones who have,
+    and the picker says how many — silently blending fewer people than the name
+    implies is worse than saying so.
+    """
+    return q(
+        """
+        SELECT p.id, p.name, p.icon,
+               COALESCE(array_agg(m.user_id) FILTER (WHERE s.owner_id IS NOT NULL), '{}')
+                 AS countable,
+               count(m.user_id) AS members
+          FROM party p
+          LEFT JOIN party_member m ON m.party_id = p.id
+          LEFT JOIN taste_share s ON s.owner_id = m.user_id AND s.viewer_id = %s
+         WHERE p.owner_id = %s
+         GROUP BY p.id, p.name, p.icon
+         ORDER BY lower(p.name)
+        """, (viewer_id, viewer_id))
+
+
 def shared_by_me(owner_id):
     """Who you have let count your taste. One-way: this is not the same list as
     `circle`, and conflating them would mean you cannot plan a film for

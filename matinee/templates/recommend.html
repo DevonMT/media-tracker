@@ -1,5 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Matinee{% endblock %}
+{% block title %}Matinee
+<script>
+/* Picking a party ticks its people. It does NOT submit: you may want to add
+   somebody who is not in it, and a picker that ran off immediately would make
+   that two searches instead of one. */
+document.querySelectorAll('.party-pick').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var want = (b.dataset.who || '').split(',').filter(Boolean);
+    document.querySelectorAll('input[name="who"]').forEach(function (i) {
+      i.checked = want.indexOf(i.value) !== -1 || i.dataset.me === '1';
+      i.closest('.chip').classList.toggle('on', i.checked);
+    });
+  });
+});
+</script>
+{% endblock %}
 {% block body %}
 
 {#  The one screen that carries the whole idea. "Just me" and "me and Gran"
@@ -11,6 +26,7 @@
     {% for p in circle %}
       <label class="chip{% if p.id in chosen %} on{% endif %}">
         <input type="checkbox" name="who" value="{{ p.id }}"
+               {% if p.is_me %}data-me="1"{% endif %}
                {% if p.id in chosen %}checked{% endif %}>
         <span class="avatar sm {{ p.accent or '' }}">{{ p.icon or '·' }}</span>
         <span class="chip-name">{{ p.name or p.email }}{% if p.is_me %} (you){% endif %}</span>
@@ -21,6 +37,22 @@
     {% endfor %}
     <a class="chip add" href="/circle">+ someone</a>
   </div>
+  {% if parties %}
+  {# A party is a shortcut, not a different mode: picking one ticks its people
+     and you can still add or remove anybody afterwards. #}
+  <div class="parties">
+    <span class="meta">Parties:</span>
+    {% for p in parties %}
+      <button type="button" class="chip party-pick"
+              data-who="{{ p.countable | join(',') }}"
+              title="{% if p.countable | length < p.members %}{{ p.members - (p.countable | length) }} of them have not shared their taste with you, so they cannot be counted{% else %}Pick everyone in {{ p.name }}{% endif %}">
+        {{ p.icon or '·' }} {{ p.name }}
+        <span class="chip-count">{{ p.countable | length }}{% if p.countable | length < p.members %} of {{ p.members }}{% endif %}</span>
+      </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="row">
     <label class="inline"><input type="checkbox" name="rewatch" {% if rewatch %}checked{% endif %}> Allow things somebody has already seen</label>
     <button type="submit">Find something</button>
