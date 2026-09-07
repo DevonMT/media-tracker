@@ -123,27 +123,29 @@ def friends_not_yet_shared(owner_id):
 
 
 def parties(viewer_id):
-    """Your parties, and which of their members you may actually count.
+    """Your groups, and which of their members you may actually count.
 
-    Membership is intersected with your CIRCLE, not just your friends: being in
-    a party says you watch together, not that they let you use their ratings.
-    A party whose members have not shared is offered with the ones who have,
-    and the picker says how many — silently blending fewer people than the name
-    implies is worse than saying so.
+    Both kinds come back: a shared PARTY you belong to, and a private LIST you
+    keep. Matinee does not care about the difference — either way it is a set
+    of people to tick — so this asks for both and sorts parties first.
+
+    Membership is intersected with your CIRCLE, not merely with your friends.
+    A group is a shortcut for picking, never a way to count somebody who has
+    not agreed to be counted, and `countable` is how the template says so.
     """
-    return q(
-        """
-        SELECT p.id, p.name, p.icon,
-               COALESCE(array_agg(m.user_id) FILTER (WHERE s.owner_id IS NOT NULL), '{}')
-                 AS countable,
+    return q("""
+        SELECT p.id, p.name, p.icon, p.kind,
+               COALESCE(array_agg(m.user_id)
+                 FILTER (WHERE s.owner_id IS NOT NULL OR m.user_id = %s), '{}') AS countable,
                count(m.user_id) AS members
           FROM party p
+          JOIN party_member me ON me.party_id = p.id AND me.user_id = %s
           LEFT JOIN party_member m ON m.party_id = p.id
           LEFT JOIN taste_share s ON s.owner_id = m.user_id AND s.viewer_id = %s
-         WHERE p.owner_id = %s
-         GROUP BY p.id, p.name, p.icon
-         ORDER BY lower(p.name)
-        """, (viewer_id, viewer_id))
+         WHERE p.kind = 'party' OR me.role = 'steward'
+         GROUP BY p.id, p.name, p.icon, p.kind
+         ORDER BY p.kind DESC, lower(p.name)""",
+        (viewer_id, viewer_id, viewer_id))
 
 
 def shared_by_me(owner_id):
