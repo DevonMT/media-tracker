@@ -133,6 +133,10 @@ details.form[open] > summary::before { content: '\2212 '; }
 .avatar.violet { background: color-mix(in srgb, var(--accent) 14%, var(--seg)); }
 .avatar.sky    { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
 .avatar.lime   { background: color-mix(in srgb, var(--fav) 20%, var(--surface)); }
+/* A generated pattern brings its own ground and fills the whole circle, so it
+   covers rather than sits centred the way an emoji does. */
+img.avatar { object-fit: cover; padding: 0; }
+
 
 /* The picker is the ordinary way in, so it sits above the address form and
    reads as a list of people rather than a form. */

@@ -1,0 +1,17 @@
+{# One definition of what a person looks like.
+
+   An emoji is text and a generated pattern is an image, so this is a macro
+   rather than a variable: five templates rendering `icon or '·'` themselves
+   were five places to forget the second case.
+
+   The pattern comes from the platform, which serves it as a pure function of
+   the URL — no session, no lookup, cached forever — so this is one <img> and
+   not a round trip. #}
+{% macro avatar(p, extra='') -%}
+{%- if p.icon -%}
+<span class="avatar {{ extra }} {{ p.accent or '' }}">{{ p.icon }}</span>
+{%- else -%}
+<img class="avatar {{ extra }}" alt=""
+     src="https://devondoes.dev/avatar/{{ p.id | urlencode }}/{{ p.accent or 'slate' }}.svg">
+{%- endif -%}
+{%- endmacro %}
