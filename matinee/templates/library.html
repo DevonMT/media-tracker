@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Library · Matinee{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>Library</h1>
+  <p>Every title anyone here has an opinion on. Yours are the ones you can edit.</p>
+</div>
+
+<form method="get" action="/library" class="row search">
+  <input name="q" value="{{ q }}" placeholder="Search the library" aria-label="Search">
+  <button type="submit">Search</button>
+  <a href="/add"><button class="ghost" type="button">Add a title</button></a>
+</form>
+
+<div class="rowlist">
+  {% for t in titles %}
+  <div class="rowitem{% if t.dismissed %} dim{% endif %}">
+    <span class="grow">
+      <a href="/title/{{ t.id }}"><strong>{{ t.name }}</strong></a>
+      <span class="meta">
+        {{ t.year or '' }} · {{ t.kind }}
+        {%- if t.genres %} · {{ t.genres | join(', ') }}{% endif %}
+        {%- if not t.tmdb_id %} · <span class="warn">no TMDB match</span>{% endif %}
+      </span>
+    </span>
+    {# A COUNT, not a list. "three people have an opinion" without saying whose
+       or what is exactly what blend promises. #}
+    <span class="chips">
+      {% if t.rating %}<span class="chip">you: {{ t.rating }}/5</span>{% endif %}
+      {% if t.opinions > 1 %}<span class="chip via">{{ t.opinions }} opinions</span>{% endif %}
+      {% if t.source == 'joint' %}<span class="chip via" title="Carried from the old app, where every rating said 'both'">joint</span>{% endif %}
+      {% if t.dismissed %}<span class="chip">dismissed</span>{% endif %}
+    </span>
+  </div>
+  {% else %}
+  <p class="empty">Nothing here yet. <a href="/add">Add a title.</a></p>
+  {% endfor %}
+</div>
+{% endblock %}

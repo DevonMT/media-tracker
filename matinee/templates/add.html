@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Add · Matinee{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>Add a title</h1>
+  <p>Search TMDB so everyone lands on the same row. Two people typing “The Thing”
+     have to mean the same film, and there are two of those.</p>
+</div>
+{% if note %}<p class="note">{{ note }}</p>{% endif %}
+
+<form method="get" action="/add" class="row search">
+  <input name="q" value="{{ q }}" placeholder="Title" aria-label="Title" autofocus>
+  <button type="submit">Search</button>
+</form>
+
+<div class="rowlist">
+  {% for h in hits %}
+  <form method="post" action="/add" class="rowitem">
+    <span class="grow"><strong>{{ h.title }}</strong>
+      <span class="meta">{{ h.year or '' }} · {{ h.kind or h.media_type or '' }}</span></span>
+    <input type="hidden" name="tmdb_id" value="{{ h.tmdb_id }}">
+    <input type="hidden" name="name" value="{{ h.title }}">
+    <input type="hidden" name="year" value="{{ h.year or '' }}">
+    <input type="hidden" name="kind" value="{{ h.kind or 'movie' }}">
+    <input type="hidden" name="overview" value="{{ h.overview or '' }}">
+    <input type="hidden" name="poster" value="{{ h.poster or '' }}">
+    <select name="rating" aria-label="Your rating">
+      <option value="">not seen</option>
+      {% for n in [1,2,3,4,5] %}<option value="{{ n }}">{{ n }}/5</option>{% endfor %}
+    </select>
+    <button class="mini" type="submit">Add</button>
+  </form>
+  {% endfor %}
+</div>
+
+<details class="form">
+  <summary>Add one TMDB does not have</summary>
+  <div class="inner">
+    <p class="meta">It will be carried as a local title. Nothing is attached to a
+       TMDB id on a guess, because a wrong id silently merges two different films
+       and there is no undoing that once reviews hang off it.</p>
+    <form method="post" action="/add">
+      <label class="field"><span>Name</span><input name="name" required></label>
+      <label class="field"><span>Year</span><input name="year" inputmode="numeric"></label>
+      <label class="field"><span>Kind</span>
+        <select name="kind"><option value="movie">movie</option><option value="show">show</option></select></label>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+</details>
+{% endblock %}

@@ -1,0 +1,122 @@
+/*
+ * Matinee's own styles. Tokens, reset and the estate bar come from
+ * static/ds, which is GENERATED — edit devondoes/ds and run `node ds/sync.mjs`.
+ *
+ * LAYOUT FOLLOWS WIDTH. An iPad in landscape is 1180px and still a touch
+ * device, so nothing here keys off a pointer: what changes at 900px is how
+ * much fits, not how you touch it.
+ */
+:root {
+  --field: #ffffff;
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-body: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { --field: #0f1518; }
+}
+:root[data-theme='dark'] { --field: #0f1518; }
+
+body { font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+main { width: min(1080px, 100%); margin: 0 auto; padding: 22px 20px 64px; }
+
+h1 { font-family: var(--font-display); font-weight: 800; font-size: 26px;
+     letter-spacing: -.025em; margin: 0 0 4px; }
+h2 { font-family: var(--font-display); font-weight: 800; font-size: 17px; margin: 0 0 3px; }
+h3 { font-family: var(--font-display); font-weight: 800; font-size: 16px; margin: 0; }
+.pagehead { margin-bottom: 20px; }
+.pagehead p, .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 10px; max-width: 66ch; }
+.meta { color: var(--muted); font-size: 12.5px; }
+.warn { color: var(--fav); }
+a { color: var(--accent-deep); text-decoration: none; }
+p a:hover, .rowitem a:hover { text-decoration: underline; }
+
+.tabs { border-bottom: 1px solid var(--line); background: var(--surface); }
+.tabs .in { width: min(1080px, 100%); margin: 0 auto; padding: 0 20px;
+  display: flex; gap: 2px; }
+.tabs a { color: var(--muted); font-size: 13.5px; padding: 11px 12px;
+  border-bottom: 2px solid transparent; }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current='page'] { color: var(--ink); border-bottom-color: var(--accent); }
+
+button { font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); border: 0;
+  border-radius: 8px; padding: 9px 14px; }
+button:hover { background: var(--accent-deep); }
+button.ghost { background: transparent; color: var(--ink);
+  border: 1px solid var(--line); font-weight: 500; }
+button.ghost:hover { background: var(--press); }
+button.mini { font-size: 12px; padding: 5px 10px; }
+
+input, select, textarea { background: var(--field); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+  font: inherit; font-size: 14px; width: 100%; }
+.field { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.inline { display: flex; align-items: center; gap: 7px; font-size: 12.5px;
+  color: var(--muted); cursor: pointer; }
+.inline input { width: auto; accent-color: var(--accent); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.search input { flex: 1 1 220px; }
+.form .inner { display: grid; gap: 11px; padding: 0 14px 14px; }
+details.form { border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); margin-top: 14px; }
+details.form > summary { cursor: pointer; padding: 11px 14px; font-size: 13.5px;
+  list-style: none; }
+details.form > summary::-webkit-details-marker { display: none; }
+details.form > summary::before { content: '+ '; color: var(--accent); }
+details.form[open] > summary::before { content: '\2212 '; }
+
+.band { margin: 26px 0; }
+.note { background: var(--fav-soft); color: var(--ink); border-radius: 8px;
+  padding: 10px 12px; font-size: 13px; margin: 12px 0; }
+.empty { color: var(--muted); font-size: 13.5px; padding: 14px 2px; }
+
+.rowlist { display: grid; border-top: 1px solid var(--line); }
+.rowitem { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.rowitem .grow { flex: 1 1 220px; min-width: 0; display: grid; gap: 1px; }
+.rowitem.dim { opacity: .55; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { font-size: 11.5px; border: 1px solid var(--line); border-radius: 7px;
+  padding: 4px 9px; color: var(--muted); display: inline-flex; align-items: center;
+  gap: 6px; background: var(--surface); }
+.chip.via { border-style: dashed; }
+.chip button { background: none; border: 0; color: var(--muted); padding: 0;
+  font-size: 13px; line-height: 1; }
+.chip button:hover { color: var(--danger); background: none; }
+
+/* The picker. Toggling people re-runs the blend; one person selected is the
+   same feature, not a different mode. */
+.picker .chips { margin: 10px 0; }
+.picker .chip { cursor: pointer; padding: 8px 12px; font-size: 13px; }
+.picker .chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.picker .chip.on { border-color: var(--accent); background: var(--accent-soft);
+  color: var(--ink); }
+.chip-name { font-weight: 600; }
+.chip-count { color: var(--muted); font-size: 11px; }
+.chip.add { color: var(--accent-deep); border-style: dashed; }
+
+.grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+.card { background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 15px; display: grid; gap: 7px; align-content: start; }
+.card .year { color: var(--muted); font-weight: 400; font-size: 13px; }
+.overview { color: var(--muted); font-size: 13px; margin: 0; }
+.overview.wide { max-width: 70ch; }
+.reason { font-size: 13.5px; margin: 0; }
+
+/* The floor, given the weight it deserves: it is the number that decides
+   whether you put the film on. The others are context. */
+.scores { display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+  margin-top: 3px; }
+.floor { font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
+  color: var(--accent-ink); background: var(--accent); border-radius: 7px;
+  padding: 4px 9px; }
+.score { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 7px; padding: 4px 9px; }
+.keep { margin-top: 4px; }
+
+@media (min-width: 900px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  main { padding: 26px 24px 72px; }
+}
