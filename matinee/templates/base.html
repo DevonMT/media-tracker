@@ -34,5 +34,9 @@
 
 <main>{% block body %}{% endblock %}</main>
 <script src="/static/ds/chrome.js" defer></script>
+{# Page scripts go HERE, at the end of the body. recommend.html had put its
+   script inside {% block title %}, which renders inside <title> — so it was
+   never a script at all, it was the text of the browser tab. #}
+{% block script %}{% endblock %}
 </body>
 </html>

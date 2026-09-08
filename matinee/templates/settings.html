@@ -7,9 +7,9 @@
 
 <section class="band">
   <h2>Your hard rules</h2>
-  <p class="sub">Not preferences. A rule removes a title outright, however much
-     anyone else would enjoy it — “no horror” is not “horror scores lower”.
-     Yours are yours: the others are never told a rule of yours applied.</p>
+  <p class="sub">A rule removes a title outright, however much anyone else
+     would enjoy it. Yours are private: nobody is told that a rule of yours
+     applied.</p>
   <div class="chips">
     {% for r in rules %}
       <span class="chip">{{ r.kind.replace('_', ' ') }}: {{ r.value }}
@@ -41,8 +41,8 @@
 
 <section class="band">
   <h2>Where you can watch</h2>
-  <p class="sub">Shared, not personal — a subscription is a fact about the
-     household rather than a taste.</p>
+  <p class="sub">Shared, not personal: a subscription belongs to the
+     household.</p>
   <div class="rowlist">
     {% for p in platforms %}
     <form method="post" action="/settings/platform" class="rowitem">
