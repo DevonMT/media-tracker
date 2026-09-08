@@ -3,8 +3,8 @@
 {% block body %}
 <div class="pagehead">
   <h1>Add a title</h1>
-  <p>Search TMDB so everyone lands on the same row. Two people typing “The Thing”
-     have to mean the same film, and there are two of those.</p>
+  <p>Search TMDB so everyone lands on the same row. Two people typing
+     “The Thing” should mean the same film.</p>
 </div>
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
 
@@ -36,9 +36,8 @@
 <details class="form">
   <summary>Add one TMDB does not have</summary>
   <div class="inner">
-    <p class="meta">It will be carried as a local title. Nothing is attached to a
-       TMDB id on a guess, because a wrong id silently merges two different films
-       and there is no undoing that once reviews hang off it.</p>
+    <p class="meta">It will be carried as a local title. Nothing is attached to
+       a TMDB id on a guess.</p>
     <form method="post" action="/add">
       <label class="field"><span>Name</span><input name="name" required></label>
       <label class="field"><span>Year</span><input name="year" inputmode="numeric"></label>

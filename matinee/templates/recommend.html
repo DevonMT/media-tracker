@@ -1,21 +1,6 @@
 {% import '_avatar.html' as av with context %}
 {% extends "base.html" %}
-{% block title %}Matinee
-<script>
-/* Picking a party ticks its people. It does NOT submit: you may want to add
-   somebody who is not in it, and a picker that ran off immediately would make
-   that two searches instead of one. */
-document.querySelectorAll('.party-pick').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var want = (b.dataset.who || '').split(',').filter(Boolean);
-    document.querySelectorAll('input[name="who"]').forEach(function (i) {
-      i.checked = want.indexOf(i.value) !== -1 || i.dataset.me === '1';
-      i.closest('.chip').classList.toggle('on', i.checked);
-    });
-  });
-});
-</script>
-{% endblock %}
+{% block title %}Matinee{% endblock %}
 {% block body %}
 
 {#  The one screen that carries the whole idea. "Just me" and "me and Gran"
@@ -114,4 +99,31 @@ document.querySelectorAll('.party-pick').forEach(function (b) {
   </div>
 </section>
 {% endif %}
+{% endblock %}
+
+{% block script %}
+<script>
+/*
+ * The picker's checkboxes are opacity:0 — the chip IS the control — so the
+ * only thing that says "picked" is the .on class. Nothing was adding it on a
+ * click, so ticking somebody registered on submit and showed nothing at all,
+ * which reads as a dead button.
+ */
+function paint(i) { i.closest('.chip').classList.toggle('on', i.checked); }
+var picks = document.querySelectorAll('.picker input[name="who"]');
+picks.forEach(function (i) { i.addEventListener('change', function () { paint(i); }); });
+
+/* Picking a party ticks its people. It does NOT submit: you may want to add
+   somebody who is not in it, and a picker that ran off immediately would make
+   that two searches instead of one. */
+document.querySelectorAll('.party-pick').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var want = (b.dataset.who || '').split(',').filter(Boolean);
+    picks.forEach(function (i) {
+      i.checked = want.indexOf(i.value) !== -1 || i.dataset.me === '1';
+      paint(i);
+    });
+  });
+});
+</script>
 {% endblock %}

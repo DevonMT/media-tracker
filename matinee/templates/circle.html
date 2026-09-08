@@ -4,9 +4,8 @@
 {% block body %}
 <div class="pagehead">
   <h1>Circle</h1>
-  <p>Two separate things, on purpose. Being able to <em>reach</em> Matinee is a
-     platform grant. Whose taste is <em>counted</em> in a recommendation is this —
-     and it is granted by the person whose taste it is.</p>
+  <p>Being able to <em>reach</em> Matinee is a platform grant. Whose taste is
+     <em>counted</em> in a recommendation is this, and only they can grant it.</p>
 </div>
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
 
@@ -69,10 +68,9 @@
            recommend for a group without revealing the group's ratings is strictly
            better than one that cannot, and building it the other way round is a
            door that cannot be closed later. #}
-        <p class="meta">Blend is the starting position. A recommendation never
-           needed to show its inputs to produce an answer.</p>
-        <p class="meta">Being connected is a convenience for finding each other,
-           not a requirement — you can share with anyone who has an account.</p>
+        <p class="meta">Blend is the starting position.</p>
+        <p class="meta">You can share with anyone who has an account. Being
+           connected just makes them easier to find.</p>
         <button type="submit">Share</button>
       </form>
     </div>
@@ -92,9 +90,8 @@
           {%- else %} · counted only{% endif %}</span></span>
     </div>
     {% else %}
-    <p class="empty">Nobody has shared with you yet. Only they can do that —
-       being given the app is not the same as wanting their opinion counted.
-       <a href="https://devondoes.dev/people">Connect with people</a> so they can
+    <p class="empty">Nobody has shared with you yet. Only they can do that.
+       <a href="https://devondoes.dev/friends">Connect with people</a> so they can
        find you.</p>
     {% endfor %}
   </div>
