@@ -21,12 +21,22 @@ services:
       PGDATABASE: warehouse
       MOVIE_SCHEMA: movie
       MATINEE_DB: platform
+      BROKER_URL: http://172.30.0.1:8610
     env_file:
-      - ./secrets/app.env    # PGUSER, PGPASSWORD, ANTHROPIC_API_KEY, TMDB_API_TOKEN
+      - ./secrets/app.env    # PGUSER, PGPASSWORD, TMDB_API_TOKEN, GATEWAY_TOKEN
+    cap_drop: [NET_RAW]
+    # Least privilege, per devondoes/SPEC-network.md. The networks are created
+    # by devondoes/ops/networks.sh.
     networks:
-      - warehouse
+      front_matinee: {}        # the gateway: matinee.devondoes.dev
+      db_matinee: {}           # Postgres, as `postgres`
+      host_broker:             # the AI broker on the host, and out to TMDB
+        ipv4_address: 172.30.0.11
 
 networks:
-  warehouse:
+  front_matinee:
     external: true
-    name: dataplatform_default   # join the data platform's network to reach `postgres`
+  db_matinee:
+    external: true
+  host_broker:
+    external: true

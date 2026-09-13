@@ -21,7 +21,7 @@ import os
 
 import requests
 
-BROKER_URL = os.environ.get("BROKER_URL", "http://172.18.0.1:8610")
+BROKER_URL = os.environ.get("BROKER_URL", "http://172.30.0.1:8610")
 APP_ID = os.environ.get("BROKER_APP_ID", "matinee")
 
 # The subscription path shells out to the Claude CLI, which is slower than the
