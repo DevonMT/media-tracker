@@ -5,8 +5,12 @@ services:
     build: .
     container_name: movie-tracker
     restart: unless-stopped
-    ports:
-      - "8551:8501"          # http://<mini-ip>:8551
+    # NO published port. 8551 used to be here for LAN convenience, back when
+    # this was single-user Streamlit. Once Matinee trusted X-Platform-User it
+    # became the opposite: Docker's rules sit in front of UFW, so any device on
+    # the home network could send that header and be anybody. The gateway
+    # reaches this as movie-tracker:8501 over the Docker network and never used
+    # the published port at all.
     environment:
       PGHOST: postgres
       PGPORT: "5432"
