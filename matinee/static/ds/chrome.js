@@ -19,6 +19,22 @@
  */
 (function () {
   /*
+   * Background motion, estate-wide.
+   *
+   * The platform mirrors the profile setting into a cookie on .devondoes.dev,
+   * so every app can read it here, before its background starts, with no
+   * request. Stamped on <html> as data-motion="off". Anything animated asks
+   * window.dsMotion() before it moves: false when the setting is off OR the
+   * device asks for reduced motion.
+   */
+  var root = document.documentElement;
+  if (document.cookie.split('; ').indexOf('ds_motion=off') > -1) root.setAttribute('data-motion', 'off');
+  window.dsMotion = function () {
+    return root.getAttribute('data-motion') !== 'off' &&
+      !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  };
+
+  /*
    * Keep the address bar in step with the page.
    *
    * theme-color paints the browser chrome and, on Android, the status bar. It
