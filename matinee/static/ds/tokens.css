@@ -74,6 +74,11 @@
   --ok: #1c6b4b;
   --fav: #7a5a06;
   --fav-soft: #f6edd6;
+  /* Caution: needs attention soon, not wrong yet — a bill still to pay, a
+     balance running low. Not --fav, which means "favourite"; borrowing a
+     name for its colour is how a palette change breaks the meaning. */
+  --warn: #8a5100;
+  --warn-soft: #fbeedb;
 
   /* ---- Depth ------------------------------------------------------------
      Tokens, not literals. A scrim and a shadow are the two things most often
@@ -104,6 +109,47 @@
   --nav-h: 62px;
   --desktop: 900px;
 
+  /* ---- Type -------------------------------------------------------------
+     Shared across the estate: body text and data read the same in every
+     app. What an app may change is --font-display, for headings only — the
+     one place an app's voice shows in its letters. Loading a face is the
+     app's job (a <link> or @font-face); these stacks fall back to the
+     system faces if it does not, so a missing font is plain, never broken. */
+  --font-body: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, monospace;
+  --font-display: var(--font-body);
+
+  /* ---- Space ------------------------------------------------------------
+     A 12px grid with 4px steps inside it. Ledger draws graph paper on the
+     12px grid and every edge has to land on a line, so layout that uses these
+     steps lines up with a background drawn on the same unit.              */
+  --unit: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 36px;
+  --space-7: 48px;
+  --space-8: 72px;
+
+  /* ---- Shape ------------------------------------------------------------ */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* ---- Motion -----------------------------------------------------------
+     For interface transitions. Ambient movement (a turning background) is
+     separate and obeys the estate's motion setting: chrome.js stamps
+     data-motion="off" on the root when the person has turned animation off,
+     and every animated background must hold still under that attribute, as it
+     must under prefers-reduced-motion.                                     */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-quick: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+
   color-scheme: light;
 }
 
@@ -128,6 +174,8 @@
     --ok: #6fd39f;
     --fav: #e3bd5c;
     --fav-soft: #332a12;
+    --warn: #f2b35c;
+    --warn-soft: #3a2a12;
 
     --seg: #1e262a;
     --scrim: rgba(0, 0, 0, 0.6);
@@ -166,6 +214,8 @@
   --ok: #6fd39f;
   --fav: #e3bd5c;
   --fav-soft: #332a12;
+  --warn: #f2b35c;
+  --warn-soft: #3a2a12;
 
   --seg: #1e262a;
   --scrim: rgba(0, 0, 0, 0.6);
