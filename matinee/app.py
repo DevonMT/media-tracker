@@ -6,14 +6,22 @@ review corpus has to be server-authoritative anyway — two people's reviews mus
 agree for a blend to mean anything.
 
 IDENTITY COMES FROM THE GATEWAY. X-Platform-User is set unconditionally by
-nginx from the platform's answer, so a client cannot forge it and this app
-holds no login of its own. Nothing else can reach the container.
+nginx from the platform's answer, and this app holds no login of its own.
+
+That used to finish "nothing else can reach the container", which was a claim
+about the network rather than a property of the app — and it was false. The
+compose file published 8551 on every interface, Docker's rules sit in front of
+UFW, and any device on the home network could send X-Platform-User and be
+anybody: read their library, write their reviews, share their taste. So the
+gateway now proves each request came through it with X-Gateway-Token, the same
+check Mise and Keep make, and the port is no longer published.
 """
+import hmac
 import os
 import sys
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -25,6 +33,29 @@ import ai  # noqa: E402
 import tmdb  # noqa: E402
 
 app = FastAPI(title="Matinee")
+
+GATEWAY_TOKEN = os.environ.get("GATEWAY_TOKEN", "")
+if not GATEWAY_TOKEN:
+    # Said at boot, loudly, because the check below is skipped without it and a
+    # missing variable would otherwise look exactly like a working gate.
+    print("matinee: GATEWAY_TOKEN is unset - identity headers are TRUSTED "
+          "FROM ANYONE who can reach this port", file=sys.stderr, flush=True)
+
+
+@app.middleware("http")
+async def through_the_gateway(request: Request, call_next):
+    """Refuse anything that did not come through the gateway.
+
+    Everything, not just the pages that read identity: X-Platform-Variant is
+    trusted the same way, and a forged 'full' would put a lite user's
+    recommendations on the metered key. /healthz and /static carry nobody's
+    data. compare_digest so the refusal does not time how much of it matched."""
+    path = request.url.path
+    if GATEWAY_TOKEN and path != "/healthz" and not path.startswith("/static/"):
+        sent = request.headers.get("x-gateway-token", "")
+        if not hmac.compare_digest(sent.encode(), GATEWAY_TOKEN.encode()):
+            return PlainTextResponse("Not through the gateway.", status_code=403)
+    return await call_next(request)
 app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(HERE, "templates"))
 
