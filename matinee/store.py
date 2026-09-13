@@ -27,8 +27,27 @@ _pool = None
 
 
 def conn():
-    """One long-lived connection, reopened if the server drops it."""
+    """One long-lived connection, checked before every use and reopened if dead.
+
+    `.closed` alone is not enough: psycopg2 only sets it AFTER an operation has
+    failed on a dropped connection, so the first request after Postgres
+    restarted used to be a 500 (found 2026-09-13, when the database was
+    recreated onto its new networks). A `SELECT 1` first costs one local round
+    trip and finds a dead connection before a real statement is sent on it,
+    which is also why this pings instead of retrying: retrying a write that
+    may have reached the server could apply it twice.
+    """
     global _pool
+    if _pool is not None and not _pool.closed:
+        try:
+            with _pool.cursor() as cur:
+                cur.execute("SELECT 1")
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            try:
+                _pool.close()
+            except psycopg2.Error:
+                pass
+            _pool = None
     if _pool is None or _pool.closed:
         _pool = psycopg2.connect(**_dsn())
         _pool.autocommit = True
