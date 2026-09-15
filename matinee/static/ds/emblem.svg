@@ -1,5 +1,5 @@
 <!-- Generated from devondoes/ds/emblems/matinee.svg — do not edit here.
-     Edit the source and run `node ds/sync.mjs`. `--check` fails on drift. -->
+     Edit the source and run `node ds/sync.mjs`. Its check mode fails on drift. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
 <style>
   .hx{fill:#844c00} .sy{fill:#fefbf8}
