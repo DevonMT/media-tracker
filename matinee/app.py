@@ -19,6 +19,8 @@ check Mise and Keep make, and the port is no longer published.
 import hmac
 import os
 import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -35,6 +37,10 @@ import tmdb  # noqa: E402
 app = FastAPI(title="Matinee")
 
 GATEWAY_TOKEN = os.environ.get("GATEWAY_TOKEN", "")
+
+# The container runs on UTC, so date.today() after 7pm on a Sunday said Monday.
+# "The day we watched it" is the household's day.
+HOME_TZ = ZoneInfo(os.environ.get("TZ") or "America/Chicago")
 if not GATEWAY_TOKEN:
     # Said at boot, loudly, because the check below is skipped without it and a
     # missing variable would otherwise look exactly like a working gate.
@@ -100,12 +106,13 @@ def _check_origin(request):
 # ── recommend ───────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
+def home(request: Request, watched: str | None = None):
     who = me(request)
     return page(request, "recommend.html", who=who,
                 circle=store.circle(who["id"]), picks=[], note=None,
                 chosen=[who["id"]], parties=store.parties(who["id"]),
-                saved=store.saved(who["id"]))
+                saved=store.saved(who["id"]),
+                just_watched=store.title(watched) if watched else None)
 
 
 @app.post("/recommend", response_class=HTMLResponse)
@@ -156,6 +163,57 @@ async def keep(request: Request):
         audience=form.getlist("audience") or [who["id"]],
         floor_user=form.get("floor_user") or who["id"], requested_by=who["id"])
     return RedirectResponse("/", status_code=303)
+
+
+@app.post("/keep/{sid}/watched")
+async def watched_kept(sid: str, request: Request):
+    """You watched a kept pick: it becomes a title with your review on it.
+
+    Only YOUR review. The pick may have been for you and Gran, but her opinion
+    is hers to give — writing it for her would put words in the blend that
+    nobody said."""
+    _check_origin(request)
+    who = me(request)
+    s = store.suggestion(sid, who["id"])
+    if not s:
+        raise HTTPException(status_code=404, detail="No such pick.")
+    form = await request.form()
+    tid = s["title_id"] or _title_for(s)
+    store.set_review(who["id"], tid, _rating(form.get("rating")),
+                     form.get("liked") == "on",
+                     (form.get("notes") or "").strip() or None,
+                     watched_at=datetime.now(HOME_TZ).date())
+    store.mark_watched(sid, who["id"], tid)
+    return RedirectResponse("/?watched=%s" % tid, status_code=303)
+
+
+def _title_for(s):
+    """The library row a kept pick becomes.
+
+    An existing title first, so a film already in the library gets a review
+    rather than a twin. Then TMDB, accepted only when it is plainly the same
+    thing — `find_match` takes "Up" to be "Upgrade" if it has to, and nothing is
+    attached to a TMDB id on a guess. Then a local title, so TMDB being down
+    never loses what somebody just told us.
+    """
+    kind = "show" if s["kind"] in ("show", "tv") else "movie"
+    tid = store.title_by_name(s["name"], s["year"])
+    if tid:
+        return tid
+    hit = None
+    try:
+        hit = tmdb.find_match(s["name"], s["year"], kind)
+    except Exception as exc:
+        print("matinee: TMDB lookup for %r failed: %s" % (s["name"], exc),
+              file=sys.stderr, flush=True)
+    if hit and (hit["year"] == s["year"] if s["year"]
+                else tmdb._norm_for_match(hit["title"]) == tmdb._norm_for_match(s["name"])):
+        return store.upsert_title(
+            hit["tmdb_id"], hit["type"], hit["title"], hit["year"],
+            hit["genre"].split("/") if hit.get("genre") else [],
+            None, hit.get("overview") or s["overview"], None)
+    return store.upsert_title(None, kind, s["name"], s["year"], [], None,
+                              s["overview"], None)
 
 
 @app.post("/keep/{sid}/drop")
@@ -370,3 +428,9 @@ def _int(v):
         return int(v)
     except (TypeError, ValueError):
         return None
+
+
+def _rating(v):
+    """1-5 or nothing. The column's CHECK would turn a hand-edited 7 into a 500."""
+    n = _int(v)
+    return n if n is not None and 1 <= n <= 5 else None
