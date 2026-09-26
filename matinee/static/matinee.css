@@ -184,8 +184,12 @@ details.form[open] > summary::before { content: '\2212\00a0'; }
   background: var(--surface); }
 .rowitem form.watched[hidden] { display: none; }
 /* The two buttons wrap as a pair: at 390px "Remove" used to fall onto a line
-   of its own under "Watched it". */
-.rowitem .acts { display: flex; gap: 8px; flex: none; }
+   of its own under "Watched it". One of them is the point, so only one looks
+   like a button: two boxed buttons 8px apart read as a single lumpy control. */
+.rowitem .acts { display: flex; gap: 14px; flex: none; align-items: center; }
+button.quiet { background: none; border: 0; color: var(--muted);
+  font-weight: 500; padding: 5px 6px; }
+button.quiet:hover { background: none; color: var(--danger); text-decoration: underline; }
 .rowitem form.watched .row { margin: 0; }
 .stars { border: 0; margin: 0; padding: 0; display: flex; gap: 6px;
   flex-wrap: wrap; align-items: center; }
