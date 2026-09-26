@@ -1,0 +1,30 @@
+{% import '_review.html' as review %}
+{#  Its own file so "Keep" on a result can redraw just this, in place: the
+    results exist only in the page that drew them, and reloading to show the
+    new row would throw the rest of them away. #}
+<section class="band" id="kept"{% if not saved %} hidden{% endif %}>
+  <h2>Kept</h2>
+  <div class="rowlist">
+    {% for s in saved %}
+    <div class="rowitem">
+      <span class="grow"><strong>{{ s.name }}</strong>
+        <span class="meta">{{ s.year or '' }}{% if s.floor_score %} · weakest fit {{ s.floor_score }}{% endif %}</span></span>
+      <span class="acts">
+        <button class="mini watch-open" type="button" aria-expanded="false"
+                aria-controls="watched-{{ s.id }}">Watched it</button>
+        <form method="post" action="/keep/{{ s.id }}/drop">
+          <button class="mini quiet" type="submit">Remove</button>
+        </form>
+      </span>
+
+      {#  The feedback is the point of marking it: a watched pick with no
+          opinion teaches the next blend nothing. Every field is optional all
+          the same — "we watched it" is still worth taking off the list. #}
+      <form method="post" action="/keep/{{ s.id }}/watched" class="watched"
+            id="watched-{{ s.id }}" hidden>
+        {{ review.fields() }}
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>

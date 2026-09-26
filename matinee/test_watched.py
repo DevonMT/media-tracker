@@ -83,5 +83,53 @@ class Rating(unittest.TestCase):
                          [1, 5, None, None, None, None, None, None])
 
 
+class ActOnAResult(unittest.TestCase):
+    """A result card answers in place: the picks exist only in the page that
+    drew them, so a redirect would throw the other five away. Without the
+    page's script, a plain form post still gets somewhere sensible."""
+
+    CARD = {"name": "Paddington 2", "year": "2017", "kind": "movie", "overview": "A bear."}
+    FETCH = {"X-Requested-With": "fetch"}
+
+    def setUp(self):
+        from fastapi.testclient import TestClient
+        self.store = mock.patch.object(app, "store").start()
+        mock.patch.object(app, "me", return_value={"id": "devon"}).start()
+        mock.patch.object(app, "_title_for", return_value="tid").start()
+        self.addCleanup(mock.patch.stopall)
+        self.store.saved.return_value = [{"id": "s1", "name": "Paddington 2",
+                                          "year": 2017, "floor_score": 81}]
+        self.client = TestClient(app.app, headers={"X-Gateway-Token": "test"})
+
+    def post(self, url, data, **headers):
+        return self.client.post(url, data=data, headers=headers, follow_redirects=False)
+
+    def test_seen_it_saves_your_review_and_answers_in_place(self):
+        r = self.post("/pick/seen", {**self.CARD, "rating": "2", "notes": " Too twee. "},
+                      **self.FETCH)
+        self.assertEqual(r.status_code, 204)
+        self.store.set_review.assert_called_once_with("devon", "tid", 2, False, "Too twee.")
+
+    def test_without_the_script_it_redirects_to_the_saved_note(self):
+        r = self.post("/pick/seen", {**self.CARD, "rating": "5"})
+        self.assertEqual((r.status_code, r.headers["location"]), (303, "/?watched=tid"))
+
+    def test_not_for_me_dismisses_it_for_you(self):
+        r = self.post("/pick/dismiss", self.CARD, **self.FETCH)
+        self.assertEqual(r.status_code, 204)
+        self.store.dismiss.assert_called_once_with("devon", "tid", "recommendation")
+
+    def test_keep_in_place_sends_back_the_kept_list(self):
+        r = self.post("/keep", {**self.CARD, "floor": "81", "floor_user": "devon"}, **self.FETCH)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('id="kept"', r.text)
+        self.assertIn("Paddington 2", r.text)
+
+    def test_another_site_cannot_act_on_your_behalf(self):
+        r = self.post("/pick/dismiss", self.CARD, Origin="https://evil.example", **self.FETCH)
+        self.assertEqual(r.status_code, 403)
+        self.store.dismiss.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

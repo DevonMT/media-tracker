@@ -130,7 +130,9 @@ details.form[open] > summary::before { content: '\2212\00a0'; }
 .chip-count { color: var(--muted); font-size: 11px; }
 .chip.add { color: var(--accent-deep); border-style: dashed; }
 
-.grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+.grid { display: grid; gap: 12px; grid-template-columns: 1fr;
+  /* Top, not stretch: opening "Seen it" in one card grew its neighbours too. */
+  align-items: start; }
 .card { background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; padding: 15px; display: grid; gap: 7px; align-content: start; }
 .card .year { color: var(--muted); font-family: var(--font-body); font-weight: 400;
@@ -179,10 +181,10 @@ details.form[open] > summary::before { content: '\2212\00a0'; }
 
 /* Marking a kept pick watched. The form opens under its row, full width, so
    the name and the two buttons stay where the thumb left them. */
-.rowitem form.watched { flex: 1 1 100%; display: grid; gap: 10px;
+form.watched { flex: 1 1 100%; display: grid; gap: 10px;
   padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
   background: var(--surface); }
-.rowitem form.watched[hidden] { display: none; }
+form.watched[hidden] { display: none; }
 /* The two buttons wrap as a pair: at 390px "Remove" used to fall onto a line
    of its own under "Watched it". One of them is the point, so only one looks
    like a button: two boxed buttons 8px apart read as a single lumpy control. */
@@ -190,7 +192,7 @@ details.form[open] > summary::before { content: '\2212\00a0'; }
 button.quiet { background: none; border: 0; color: var(--muted);
   font-weight: 500; padding: 5px 6px; }
 button.quiet:hover { background: none; color: var(--danger); text-decoration: underline; }
-.rowitem form.watched .row { margin: 0; }
+form.watched .row { margin: 0; }
 .stars { border: 0; margin: 0; padding: 0; display: flex; gap: 6px;
   flex-wrap: wrap; align-items: center; }
 .stars legend { font-size: 12.5px; color: var(--muted); padding: 0; margin-bottom: 6px; }
@@ -201,3 +203,25 @@ button.quiet:hover { background: none; color: var(--danger); text-decoration: un
 .stars .chip:has(input:checked) { border-color: var(--accent);
   background: var(--accent-soft); color: var(--ink); }
 .stars .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* A result card's actions. Keep is the button; Seen it and Not for me are the
+   other two answers, quieter, and all three take the card off the list. */
+.card-acts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.card form.watched { margin-top: 4px; }
+.card-error { color: var(--danger); font-size: 12.5px; margin: 0; }
+.card { transition: opacity .2s ease, transform .2s ease; }
+.card.gone { opacity: 0; transform: scale(.98); }
+
+/* Find something, while the model thinks. */
+.find { display: inline-flex; align-items: center; gap: 8px; }
+.find:disabled { cursor: progress; opacity: .8; }
+.spin { display: none; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin .8s linear infinite; }
+.find[aria-busy='true'] .spin { display: inline-block; }
+.working { color: var(--muted); font-size: 13px; margin: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 2.4s; }
+  .card { transition: none; }
+}

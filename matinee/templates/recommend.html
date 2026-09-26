@@ -1,4 +1,5 @@
 {% import '_avatar.html' as av with context %}
+{% import '_review.html' as review %}
 {% extends "base.html" %}
 {% block title %}Matinee{% endblock %}
 {% block body %}
@@ -41,14 +42,25 @@
 
   <div class="row">
     <label class="inline"><input type="checkbox" name="rewatch" {% if rewatch %}checked{% endif %}> Allow things somebody has already seen</label>
-    <button type="submit">Find something</button>
+    <button type="submit" class="find"><span class="spin" aria-hidden="true"></span><span class="find-label">Find something</span></button>
   </div>
+  {#  A model call takes tens of seconds, and a button that does nothing
+      visible for that long reads as broken, so the second tap goes in. #}
+  <p class="working" role="status" hidden>Asking the recommender. This can take a
+    minute<span class="elapsed"></span>.</p>
 </form>
 
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
 
+{#  The fields that say which title a card is, for the forms that act on it. #}
+{% macro title_fields(p) %}
+  {% for f in ['name','year','kind','overview'] %}
+    <input type="hidden" name="{{ f }}" value="{{ p.get(f) or '' }}">
+  {% endfor %}
+{% endmacro %}
+
 {% if picks %}
-<div class="grid">
+<div class="grid" id="picks">
   {% for p in picks %}
   <article class="card">
     <h3>{{ p.name }}{% if p.year %} <span class="year">{{ p.year }}</span>{% endif %}</h3>
@@ -69,18 +81,36 @@
       {% endfor %}
     </div>
 
-    <form method="post" action="/keep" class="keep">
-      {% for f in ['name','year','kind','platform','overview','reason'] %}
-        <input type="hidden" name="{{ f }}" value="{{ p.get(f) or '' }}">
-      {% endfor %}
-      <input type="hidden" name="floor" value="{{ p.floor }}">
-      <input type="hidden" name="floor_user" value="{{ p.floor_user }}">
-      {% for uid in p.scores %}<input type="hidden" name="audience" value="{{ uid }}">{% endfor %}
-      <button class="mini" type="submit">Keep</button>
+    {#  Three ways a pick leaves the list: keep it for later, say what you
+        thought of it if you have already seen it, or turn it down. Good or
+        bad, the answer is recorded and the card goes. #}
+    <div class="card-acts">
+      <form method="post" action="/keep" class="in-place" data-keep>
+        {% for f in ['name','year','kind','platform','overview','reason'] %}
+          <input type="hidden" name="{{ f }}" value="{{ p.get(f) or '' }}">
+        {% endfor %}
+        <input type="hidden" name="floor" value="{{ p.floor }}">
+        <input type="hidden" name="floor_user" value="{{ p.floor_user }}">
+        {% for uid in p.scores %}<input type="hidden" name="audience" value="{{ uid }}">{% endfor %}
+        <button class="mini" type="submit">Keep</button>
+      </form>
+      <button class="mini ghost watch-open" type="button" aria-expanded="false"
+              aria-controls="seen-{{ loop.index }}">Seen it</button>
+      <form method="post" action="/pick/dismiss" class="in-place">
+        {{ title_fields(p) }}
+        <button class="mini quiet" type="submit">Not for me</button>
+      </form>
+    </div>
+    <form method="post" action="/pick/seen" class="watched in-place"
+          id="seen-{{ loop.index }}" hidden>
+      {{ title_fields(p) }}
+      {{ review.fields() }}
     </form>
+    <p class="card-error" role="alert" hidden>That didn't save. Try again.</p>
   </article>
   {% endfor %}
 </div>
+<p class="empty" id="picks-done" hidden>That's all of them. Find something for another round.</p>
 {% endif %}
 
 {% if just_watched %}
@@ -88,46 +118,7 @@
   with your review — <a href="/title/{{ just_watched.id }}">see or change it</a>.</p>
 {% endif %}
 
-{% if saved %}
-<section class="band">
-  <h2>Kept</h2>
-  <div class="rowlist">
-    {% for s in saved %}
-    <div class="rowitem">
-      <span class="grow"><strong>{{ s.name }}</strong>
-        <span class="meta">{{ s.year or '' }}{% if s.floor_score %} · weakest fit {{ s.floor_score }}{% endif %}</span></span>
-      <span class="acts">
-        <button class="mini watch-open" type="button" aria-expanded="false"
-                aria-controls="watched-{{ s.id }}">Watched it</button>
-        <form method="post" action="/keep/{{ s.id }}/drop">
-          <button class="mini quiet" type="submit">Remove</button>
-        </form>
-      </span>
-
-      {#  The feedback is the point of marking it: a watched pick with no
-          opinion teaches the next blend nothing. Every field is optional all
-          the same — "we watched it" is still worth taking off the list. #}
-      <form method="post" action="/keep/{{ s.id }}/watched" class="watched"
-            id="watched-{{ s.id }}" hidden>
-        <fieldset class="stars">
-          <legend>How was it?</legend>
-          {% for n in [1,2,3,4,5] %}
-            <label class="chip"><input type="radio" name="rating" value="{{ n }}">{{ n }}</label>
-          {% endfor %}
-        </fieldset>
-        <label class="inline"><input type="checkbox" name="liked"> Liked it</label>
-        <label class="field"><span>Notes (optional)</span>
-          <textarea name="notes" rows="2" placeholder="What worked, what didn't"></textarea></label>
-        <div class="row">
-          <button type="submit">Save</button>
-          <button class="ghost watch-cancel" type="button">Cancel</button>
-        </div>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
+{% include '_kept.html' %}
 {% endblock %}
 
 {% block script %}
@@ -155,18 +146,87 @@ document.querySelectorAll('.party-pick').forEach(function (b) {
   });
 });
 
-/* "Watched it" opens that pick's feedback form under the row. */
-document.querySelectorAll('.watch-open').forEach(function (b) {
+/* Find something: say it is working, and count, so a long wait still looks
+   alive. Disabled so a second tap does not spend a second model call. */
+var picker = document.querySelector('.picker');
+var find = picker.querySelector('.find');
+var working = picker.querySelector('.working');
+var ticker = null;
+picker.addEventListener('submit', function () {
+  var t0 = Date.now();
+  find.disabled = true;
+  find.setAttribute('aria-busy', 'true');
+  find.querySelector('.find-label').textContent = 'Finding picks…';
+  working.hidden = false;
+  ticker = setInterval(function () {
+    var s = Math.round((Date.now() - t0) / 1000);
+    working.querySelector('.elapsed').textContent = ' (' + s + 's so far)';
+  }, 1000);
+});
+/* Back from the results, the browser may restore this page as it was left:
+   mid-search, with the button still disabled. */
+window.addEventListener('pageshow', function (e) {
+  if (!e.persisted) return;
+  clearInterval(ticker);
+  find.disabled = false;
+  find.removeAttribute('aria-busy');
+  find.querySelector('.find-label').textContent = 'Find something';
+  working.querySelector('.elapsed').textContent = '';
+  working.hidden = true;
+});
+
+/* "Watched it" and "Seen it" open a feedback form. Delegated, because the
+   Kept list is redrawn in place after a Keep. */
+function toggle(b, open) {
   var f = document.getElementById(b.getAttribute('aria-controls'));
-  function show(open) {
-    f.hidden = !open;
-    b.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) f.querySelector('input').focus();
+  f.hidden = !open;
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) f.querySelector('input:not([type=hidden])').focus();
+}
+document.addEventListener('click', function (e) {
+  var open = e.target.closest('.watch-open');
+  if (open) return toggle(open, open.getAttribute('aria-expanded') !== 'true');
+  var cancel = e.target.closest('.watch-cancel');
+  if (cancel) {
+    var b = document.querySelector('[aria-controls="' + cancel.closest('form').id + '"]');
+    toggle(b, false);
+    b.focus();
   }
-  b.addEventListener('click', function () { show(f.hidden); });
-  f.querySelector('.watch-cancel').addEventListener('click', function () {
-    show(false); b.focus();
-  });
+});
+
+/* A result card's forms post in place. The picks exist only in this page, so
+   a redirect after acting on one would throw the rest away. */
+document.addEventListener('submit', function (e) {
+  var form = e.target.closest('form.in-place');
+  if (!form) return;
+  e.preventDefault();
+  var card = form.closest('.card');
+  var err = card.querySelector('.card-error');
+  var buttons = card.querySelectorAll('button');
+  buttons.forEach(function (b) { b.disabled = true; });
+  err.hidden = true;
+  fetch(form.action, {method: 'POST', body: new FormData(form),
+                      headers: {'X-Requested-With': 'fetch'}})
+    .then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.text();
+    })
+    .then(function (html) {
+      if (form.hasAttribute('data-keep') && html) {
+        document.getElementById('kept').outerHTML = html;
+      }
+      card.classList.add('gone');
+      setTimeout(function () {
+        card.remove();
+        if (!document.querySelector('#picks .card')) {
+          document.getElementById('picks-done').hidden = false;
+        }
+      }, 220);
+    })
+    .catch(function () {
+      buttons.forEach(function (b) { b.disabled = false; });
+      err.hidden = false;
+    });
 });
 </script>
 {% endblock %}

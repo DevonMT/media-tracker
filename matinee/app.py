@@ -24,7 +24,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -181,7 +181,62 @@ async def keep(request: Request):
          "scores": {}},
         audience=form.getlist("audience") or [who["id"]],
         floor_user=form.get("floor_user") or who["id"], requested_by=who["id"])
+    if _in_place(request):
+        # The Kept list, redrawn, so the pick appears there without a reload.
+        return templates.TemplateResponse(request, "_kept.html",
+                                          {"saved": store.saved(who["id"])})
     return RedirectResponse("/", status_code=303)
+
+
+def _in_place(request):
+    """The results page acts on a card without leaving it.
+
+    A recommendation lives only in the response that drew it, so a redirect
+    after "Keep" used to throw away the other five picks. The page's script
+    asks with this header and takes a 204; a form posted without JavaScript
+    still gets the redirect."""
+    return request.headers.get("x-requested-with") == "fetch"
+
+
+def _done(request, url):
+    if _in_place(request):
+        return Response(status_code=204)
+    return RedirectResponse(url, status_code=303)
+
+
+def _pick_from(form):
+    """The title fields a result card posts back, shaped like a suggestion so
+    _title_for can place it."""
+    return {"name": form["name"], "year": _int(form.get("year")),
+            "kind": form.get("kind"), "overview": form.get("overview") or None,
+            "title_id": None}
+
+
+@app.post("/pick/seen")
+async def seen_pick(request: Request):
+    """Already seen one it suggested: say what you thought, good or bad.
+
+    Either way it leaves the results, and the review is what keeps it out of
+    the next ones. No watched date, because "some time ago" is not a day."""
+    _check_origin(request)
+    who = me(request)
+    form = await request.form()
+    tid = _title_for(_pick_from(form))
+    store.set_review(who["id"], tid, _rating(form.get("rating")),
+                     form.get("liked") == "on",
+                     (form.get("notes") or "").strip() or None)
+    return _done(request, "/?watched=%s" % tid)
+
+
+@app.post("/pick/dismiss")
+async def dismiss_pick(request: Request):
+    """Not for me, without having watched it. Dismissals are part of what the
+    recommender is told everyone has seen, so it stops coming back."""
+    _check_origin(request)
+    who = me(request)
+    form = await request.form()
+    store.dismiss(who["id"], _title_for(_pick_from(form)), "recommendation")
+    return _done(request, "/")
 
 
 @app.post("/keep/{sid}/watched")
