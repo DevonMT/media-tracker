@@ -127,10 +127,14 @@ async def do_recommend(request: Request):
                               allow_rewatch=rewatch)
     except ai.BrokerError as exc:
         # Degrade, never crash: the library and the reviews are still there.
+        # The full reason goes to the container log; the page gets a sentence,
+        # because the exception names internal hosts, ports and budgets.
+        print("matinee: recommend failed [%s/%s] for %s: %s"
+              % (exc.kind, exc.code, who["id"], exc), file=sys.stderr, flush=True)
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
                     picks=[], chosen=chosen, parties=store.parties(who["id"]),
                     saved=store.saved(who["id"]),
-                    note="Could not reach the recommender (%s)." % exc)
+                    note=exc.public_message())
 
     labels = {p["id"]: p["label"] for p in out.get("people", [])}
     return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),

@@ -261,6 +261,73 @@ class TestGetRecommendationsPipeline(_DBTestCase):
             self.assertEqual(recommend.rescore_saved([], {"liked": []}), [])
 
 
+class TestBrokerErrorMessages(unittest.TestCase):
+    """What a person sees when the broker fails. The raw exception names
+    internal hosts and ports, so it belongs in the log and never on the page;
+    and "come back in a minute" is only true for some failures."""
+
+    import requests as _requests
+
+    def _ask(self, **post):
+        with mock.patch.object(recommend.ai.requests, "post", **post):
+            with self.assertRaises(recommend.ai.BrokerError) as ctx:
+                recommend.ai.ask_structured("p", {})
+        return ctx.exception
+
+    def _reply(self, status, body):
+        resp = mock.Mock(status_code=status, text=str(body))
+        resp.json.return_value = body
+        return resp
+
+    def assertNoInternals(self, exc):
+        msg = exc.public_message()
+        for leak in ("tt-no-broker", "HTTPConnectionPool", "/v1/ask", "port", "$"):
+            self.assertNotIn(leak, msg)
+
+    def test_unreachable_says_try_again_and_hides_the_host(self):
+        exc = self._ask(side_effect=self._requests.ConnectionError(
+            "HTTPConnectionPool(host='tt-no-broker', port=1): Max retries "
+            "exceeded with url: /v1/ask"))
+        self.assertEqual(exc.kind, "unreachable")
+        self.assertIn("tt-no-broker", str(exc))  # still in full for the log
+        self.assertEqual(exc.public_message(),
+                         "The recommender is unavailable right now. Try again in a minute.")
+        self.assertNoInternals(exc)
+
+    def test_timeout_is_told_apart_from_unreachable(self):
+        exc = self._ask(side_effect=self._requests.ReadTimeout("read timed out"))
+        self.assertEqual(exc.kind, "timeout")
+        self.assertIn("took too long", exc.public_message())
+
+    def test_budget_refusal_does_not_say_try_again(self):
+        exc = self._ask(return_value=self._reply(429, {
+            "error": "budget_exceeded",
+            "detail": "matinee has spent $5.0100 of its $5.00 monthly budget"}))
+        self.assertEqual((exc.kind, exc.code), ("refused", "budget_exceeded"))
+        self.assertIn("budget", exc.public_message())
+        self.assertNotIn("Try again", exc.public_message())
+        self.assertNoInternals(exc)
+
+    def test_policy_refusal_says_switched_off(self):
+        exc = self._ask(return_value=self._reply(403, {
+            "error": "max_not_permitted", "detail": "'matinee': reachable by non-admins"}))
+        self.assertEqual(exc.kind, "refused")
+        self.assertIn("switched off", exc.public_message())
+
+    def test_broker_fault_is_a_retryable_failure(self):
+        exc = self._ask(return_value=self._reply(502, {
+            "error": "max_failed", "detail": "claude -p exit 1: boom"}))
+        self.assertEqual(exc.kind, "failed")
+        self.assertIn("Try again", exc.public_message())
+        self.assertNotIn("claude -p", exc.public_message())
+
+    def test_non_json_error_body_still_degrades(self):
+        resp = mock.Mock(status_code=500, text="<html>Bad Gateway</html>")
+        resp.json.side_effect = ValueError
+        exc = self._ask(return_value=resp)
+        self.assertEqual(exc.kind, "failed")
+
+
 # ──────────────────────────── UI tests via AppTest ────────────────────────────
 class TestDashboardUI(_DBTestCase):
     def setUp(self):
