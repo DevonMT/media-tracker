@@ -16,6 +16,7 @@ anybody: read their library, write their reviews, share their taste. So the
 gateway now proves each request came through it with X-Gateway-Token, the same
 check Mise and Keep make, and the port is no longer published.
 """
+import hashlib
 import hmac
 import os
 import sys
@@ -64,6 +65,24 @@ async def through_the_gateway(request: Request, call_next):
     return await call_next(request)
 app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(HERE, "templates"))
+
+
+def _asset_version():
+    """A fingerprint of the stylesheets and scripts, stamped on their URLs.
+
+    Without it a deploy could pair the new page with the browser's cached
+    CSS: on 2026-09-25 the Kept rows came out with the old button styles
+    until a hard reload. Hashed once at boot, since the files only change
+    with a deploy, which restarts the process anyway."""
+    h = hashlib.sha1()
+    for root, _, files in sorted(os.walk(os.path.join(HERE, "static"))):
+        for name in sorted(files):
+            with open(os.path.join(root, name), "rb") as f:
+                h.update(f.read())
+    return h.hexdigest()[:10]
+
+
+templates.env.globals["asset_v"] = _asset_version()
 
 # The tier the grant carries. 'lite' is the library and reviews with no model
 # calls — which is what lets this app be shared without moving Devon's own
