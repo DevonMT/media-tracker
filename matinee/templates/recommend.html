@@ -83,6 +83,11 @@
 </div>
 {% endif %}
 
+{% if just_watched %}
+<p class="note">Saved. <strong>{{ just_watched.name }}</strong> is in your library
+  with your review — <a href="/title/{{ just_watched.id }}">see or change it</a>.</p>
+{% endif %}
+
 {% if saved %}
 <section class="band">
   <h2>Kept</h2>
@@ -91,8 +96,32 @@
     <div class="rowitem">
       <span class="grow"><strong>{{ s.name }}</strong>
         <span class="meta">{{ s.year or '' }}{% if s.floor_score %} · weakest fit {{ s.floor_score }}{% endif %}</span></span>
-      <form method="post" action="/keep/{{ s.id }}/drop">
-        <button class="mini ghost" type="submit">Remove</button>
+      <span class="acts">
+        <button class="mini watch-open" type="button" aria-expanded="false"
+                aria-controls="watched-{{ s.id }}">Watched it</button>
+        <form method="post" action="/keep/{{ s.id }}/drop">
+          <button class="mini ghost" type="submit">Remove</button>
+        </form>
+      </span>
+
+      {#  The feedback is the point of marking it: a watched pick with no
+          opinion teaches the next blend nothing. Every field is optional all
+          the same — "we watched it" is still worth taking off the list. #}
+      <form method="post" action="/keep/{{ s.id }}/watched" class="watched"
+            id="watched-{{ s.id }}" hidden>
+        <fieldset class="stars">
+          <legend>How was it?</legend>
+          {% for n in [1,2,3,4,5] %}
+            <label class="chip"><input type="radio" name="rating" value="{{ n }}">{{ n }}</label>
+          {% endfor %}
+        </fieldset>
+        <label class="inline"><input type="checkbox" name="liked"> Liked it</label>
+        <label class="field"><span>Notes (optional)</span>
+          <textarea name="notes" rows="2" placeholder="What worked, what didn't"></textarea></label>
+        <div class="row">
+          <button type="submit">Save</button>
+          <button class="ghost watch-cancel" type="button">Cancel</button>
+        </div>
       </form>
     </div>
     {% endfor %}
@@ -123,6 +152,20 @@ document.querySelectorAll('.party-pick').forEach(function (b) {
       i.checked = want.indexOf(i.value) !== -1 || i.dataset.me === '1';
       paint(i);
     });
+  });
+});
+
+/* "Watched it" opens that pick's feedback form under the row. */
+document.querySelectorAll('.watch-open').forEach(function (b) {
+  var f = document.getElementById(b.getAttribute('aria-controls'));
+  function show(open) {
+    f.hidden = !open;
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) f.querySelector('input').focus();
+  }
+  b.addEventListener('click', function () { show(f.hidden); });
+  f.querySelector('.watch-cancel').addEventListener('click', function () {
+    show(false); b.focus();
   });
 });
 </script>

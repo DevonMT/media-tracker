@@ -280,14 +280,33 @@ def upsert_title(tmdb_id, kind, name, year, genres=None, runtime=None,
     return tid
 
 
-def set_review(user_id, title_id, rating=None, liked=None, notes=None):
-    """Your opinion. One per title: changing your mind updates the row."""
-    return x("""INSERT INTO review (user_id,title_id,rating,liked,notes,updated_at)
-                VALUES (%s,%s,%s,%s,%s,now())
+def title_by_name(name, year=None):
+    """The one existing title a name (and year) points at, or None.
+
+    Only when it is unambiguous: two films called The Thing with no year to
+    tell them apart is a question, not an answer, and guessing would put a
+    review on the wrong one.
+    """
+    rows = q("SELECT id, year FROM title WHERE lower(name)=lower(%s)", (name,))
+    if year:
+        rows = [r for r in rows if r["year"] == year]
+    return rows[0]["id"] if len(rows) == 1 else None
+
+
+def set_review(user_id, title_id, rating=None, liked=None, notes=None,
+               watched_at=None):
+    """Your opinion. One per title: changing your mind updates the row.
+
+    `watched_at` only ever fills in: editing a review later from the title page
+    must not forget the day you watched it."""
+    return x("""INSERT INTO review (user_id,title_id,rating,liked,notes,watched_at,updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,now())
                 ON CONFLICT (user_id,title_id) DO UPDATE SET
                   rating=EXCLUDED.rating, liked=EXCLUDED.liked,
-                  notes=EXCLUDED.notes, updated_at=now()""",
-             (user_id, title_id, rating, liked, notes))
+                  notes=EXCLUDED.notes,
+                  watched_at=COALESCE(EXCLUDED.watched_at, review.watched_at),
+                  updated_at=now()""",
+             (user_id, title_id, rating, liked, notes, watched_at))
 
 
 def clear_review(user_id, title_id):
@@ -394,6 +413,19 @@ def save_suggestion(s, audience, floor_user, requested_by):
 def saved(user_id):
     return q("""SELECT * FROM suggestion WHERE requested_by=%s AND status='pending'
                  ORDER BY at DESC""", (user_id,))
+
+
+def suggestion(sid, user_id):
+    """One of YOUR kept picks. Scoped to the requester in SQL, like drop."""
+    return q("SELECT * FROM suggestion WHERE id=%s AND requested_by=%s",
+             (sid, user_id), one=True)
+
+
+def mark_watched(sid, user_id, title_id):
+    """Off the to-watch list and pointed at the title it became. Kept rather
+    than deleted: "we watched the one it suggested" is worth knowing later."""
+    return x("""UPDATE suggestion SET status='watched', title_id=%s
+                 WHERE id=%s AND requested_by=%s""", (title_id, sid, user_id))
 
 
 def drop_suggestion(sid, user_id):

@@ -176,3 +176,24 @@ details.form[open] > summary::before { content: '\2212\00a0'; }
 .parties { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin: 6px 0 2px; }
 .party-pick { cursor: pointer; font-family: inherit; }
 .party-pick:hover { border-color: var(--accent); color: var(--ink); }
+
+/* Marking a kept pick watched. The form opens under its row, full width, so
+   the name and the two buttons stay where the thumb left them. */
+.rowitem form.watched { flex: 1 1 100%; display: grid; gap: 10px;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); }
+.rowitem form.watched[hidden] { display: none; }
+/* The two buttons wrap as a pair: at 390px "Remove" used to fall onto a line
+   of its own under "Watched it". */
+.rowitem .acts { display: flex; gap: 8px; flex: none; }
+.rowitem form.watched .row { margin: 0; }
+.stars { border: 0; margin: 0; padding: 0; display: flex; gap: 6px;
+  flex-wrap: wrap; align-items: center; }
+.stars legend { font-size: 12.5px; color: var(--muted); padding: 0; margin-bottom: 6px; }
+/* The chip is the control, as in the picker: a 40px square per number. */
+.stars .chip { cursor: pointer; font-size: 14px; font-weight: 600;
+  min-width: 40px; min-height: 40px; justify-content: center; position: relative; }
+.stars .chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.stars .chip:has(input:checked) { border-color: var(--accent);
+  background: var(--accent-soft); color: var(--ink); }
+.stars .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
