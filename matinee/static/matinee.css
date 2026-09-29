@@ -140,6 +140,7 @@ details.form[open] > summary::before { content: '\2212\00a0'; }
 .overview { color: var(--muted); font-size: 13px; margin: 0; }
 .overview.wide { max-width: 70ch; }
 .reason { font-size: 13.5px; margin: 0; }
+.where { font-size: 12.5px; margin: 0; color: var(--muted); }
 
 /* The floor, given the weight it deserves: it is the number that decides
    whether you put the film on. The others are context. */

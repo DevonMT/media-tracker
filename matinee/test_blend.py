@@ -135,5 +135,62 @@ class Prompt(unittest.TestCase):
         self.assertNotIn("do not suggest these", allowed)
 
 
+class SeenInCode(unittest.TestCase):
+    """The prompt asks; this makes sure."""
+
+    def test_seen_dropped_whatever_the_spelling(self):
+        picks = [{"name": "The Matrix"}, {"name": "Amélie"}, {"name": "Arrival"}]
+        out = blend.drop_seen(picks, {"matrix", "amelie"})
+        self.assertEqual([p["name"] for p in out], ["Arrival"])
+
+    def test_sequel_is_not_the_original(self):
+        out = blend.drop_seen([{"name": "Dune: Part Two"}], {"dune"})
+        self.assertEqual(len(out), 1)
+
+    def test_whole_seen_list_reaches_the_prompt(self):
+        """It was cut at the first 120 alphabetically."""
+        seen = {"title %03d" % i for i in range(200)} | {"zodiac"}
+        text = blend.build_prompt([], [], seen, [], 6, False)
+        self.assertIn("zodiac", text)
+
+
+class FakeTmdb:
+    def __init__(self, titles, fail=False):
+        self.titles, self.fail = titles, fail
+
+    def find_match(self, name, year, kind):
+        if self.fail:
+            raise OSError("tmdb down")
+        return {"tmdb_id": name, "type": kind} if name in self.titles else None
+
+    def get_watch_providers(self, tmdb_id, kind):
+        return self.titles[tmdb_id]
+
+
+class WhereToWatch(unittest.TestCase):
+    PLATS = [{"name": "Netflix", "can_rent": False}, {"name": "Amazon Prime", "can_rent": False}]
+
+    def test_streaming_on_our_service_kept_and_named(self):
+        tm = FakeTmdb({"Arrival": {"flatrate": ["Amazon Prime Video"]}})
+        out = blend.where_to_watch([{"name": "Arrival"}], self.PLATS, tm)
+        self.assertEqual(out[0]["where"], ["Amazon Prime"])
+
+    def test_invented_title_dropped(self):
+        tm = FakeTmdb({})
+        self.assertEqual(blend.where_to_watch([{"name": "Knives Out anthology"}], self.PLATS, tm), [])
+
+    def test_not_on_our_services_dropped_unless_renting(self):
+        tm = FakeTmdb({"Heat": {"flatrate": ["Max"], "rent": ["Apple TV"]}})
+        self.assertEqual(blend.where_to_watch([{"name": "Heat"}], self.PLATS, tm), [])
+        rent = self.PLATS + [{"name": "Digital Rental", "can_rent": True}]
+        out = blend.where_to_watch([{"name": "Heat"}], rent, tm)
+        self.assertEqual(out[0]["where"], ["Rent: Apple TV"])
+
+    def test_tmdb_down_keeps_the_pick_unverified(self):
+        out = blend.where_to_watch([{"name": "Arrival"}], self.PLATS, FakeTmdb({}, fail=True))
+        self.assertEqual(len(out), 1)
+        self.assertFalse(out[0]["verified"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

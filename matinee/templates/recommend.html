@@ -66,6 +66,8 @@
     <h3>{{ p.name }}{% if p.year %} <span class="year">{{ p.year }}</span>{% endif %}</h3>
     {% if p.overview %}<p class="overview">{{ p.overview }}</p>{% endif %}
     <p class="reason">{{ p.reason }}</p>
+    {# Checked against TMDB for your services, not the model's guess. #}
+    {% if p.where %}<p class="where">On {{ p.where | join(', ') }}</p>{% endif %}
 
     {#  The floor, named. "weakest fit: Gran, 62" is the number that decides
         whether you put it on — an average would be the one figure that does
@@ -86,9 +88,10 @@
         bad, the answer is recorded and the card goes. #}
     <div class="card-acts">
       <form method="post" action="/keep" class="in-place" data-keep>
-        {% for f in ['name','year','kind','platform','overview','reason'] %}
+        {% for f in ['name','year','kind','overview','reason'] %}
           <input type="hidden" name="{{ f }}" value="{{ p.get(f) or '' }}">
         {% endfor %}
+        <input type="hidden" name="platform" value="{{ (p.where | join(', ')) if p.where else (p.get('platform') or '') }}">
         <input type="hidden" name="floor" value="{{ p.floor }}">
         <input type="hidden" name="floor_user" value="{{ p.floor_user }}">
         {% for uid in p.scores %}<input type="hidden" name="audience" value="{{ uid }}">{% endfor %}

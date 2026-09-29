@@ -173,7 +173,7 @@ async def do_recommend(request: Request):
 
     try:
         out = blend.recommend(ai.ask_structured, who["id"], chosen,
-                              allow_rewatch=rewatch)
+                              allow_rewatch=rewatch, tmdb=tmdb)
     except ai.BrokerError as exc:
         # Degrade, never crash: the library and the reviews are still there.
         # The full reason goes to the container log; the page gets a sentence,
