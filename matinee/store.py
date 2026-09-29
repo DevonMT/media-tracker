@@ -211,25 +211,43 @@ def may_read(viewer_id, owner_id):
 # ── the library ─────────────────────────────────────────────────────────────
 
 def library(viewer_id, search=None):
-    """Titles with your own verdict, and how many others have one.
+    """The titles you are allowed to know about, with your own verdict and how
+    many in your circle have one.
 
-    The count is deliberately a COUNT and not a list: it says "three people
-    have an opinion" without saying whose or what, which is what 'blend'
-    promises. Opening someone's ratings is a separate, permitted request.
+    `title` is one shared table, and this used to list all of it -- so in a
+    circle of three, anyone could see what the others had added or turned down
+    without either of them sharing a thing. A title shows here if:
+
+      - you reviewed it or dismissed it, or
+      - someone who shares with you OPENLY reviewed it.
+
+    Not 'blend': blend means "use my taste, show nobody my ratings", and a
+    title appearing only because a blend sharer rated it says what they
+    watched. The opinions count covers you and anyone sharing with you either
+    way -- a COUNT, which is what 'blend' was designed to allow.
     """
-    where, args = "", [viewer_id, viewer_id]
+    where, args = "", [viewer_id] * 6
     if search:
         where = " AND t.name ILIKE %s"
         args.append("%%%s%%" % search)
     return q(
         """
         SELECT t.*, r.rating, r.liked, r.notes, r.source,
-               (SELECT count(*) FROM review o WHERE o.title_id = t.id) AS opinions,
+               (SELECT count(*) FROM review o
+                 WHERE o.title_id = t.id
+                   AND (o.user_id = %s OR EXISTS (
+                          SELECT 1 FROM taste_share s
+                           WHERE s.owner_id = o.user_id AND s.viewer_id = %s))) AS opinions,
                EXISTS (SELECT 1 FROM title_dismissed d
                         WHERE d.title_id = t.id AND d.user_id = %s) AS dismissed
           FROM title t
           LEFT JOIN review r ON r.title_id = t.id AND r.user_id = %s
-         WHERE true""" + where + """
+         WHERE (r.user_id IS NOT NULL
+                OR EXISTS (SELECT 1 FROM title_dismissed d
+                            WHERE d.title_id = t.id AND d.user_id = %s)
+                OR EXISTS (SELECT 1 FROM review o JOIN taste_share s
+                                ON s.owner_id = o.user_id AND s.visibility = 'open'
+                            WHERE o.title_id = t.id AND s.viewer_id = %s))""" + where + """
          ORDER BY (r.rating IS NULL), r.rating DESC, lower(t.name)
         """, tuple(args))
 
