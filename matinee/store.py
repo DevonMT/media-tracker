@@ -311,6 +311,16 @@ def title_by_name(name, year=None):
     return rows[0]["id"] if len(rows) == 1 else None
 
 
+def ensure_review(user_id, title_id):
+    """An empty opinion, so a title you added without rating it is yours.
+
+    The library shows what you have an opinion on (see library()), and adding a
+    film to rate later is an opinion that you want to. DO NOTHING, never an
+    update: adding a film you already rated must not wipe the rating."""
+    return x("""INSERT INTO review (user_id, title_id) VALUES (%s,%s)
+                ON CONFLICT (user_id, title_id) DO NOTHING""", (user_id, title_id))
+
+
 def set_review(user_id, title_id, rating=None, liked=None, notes=None,
                watched_at=None):
     """Your opinion. One per title: changing your mind updates the row.

@@ -391,6 +391,8 @@ async def add(request: Request):
         # Liked follows the score. It was always True here, so adding a film
         # at 1/5 filed it as one you liked.
         store.set_review(who["id"], tid, rating, rating >= 4, None)
+    else:
+        store.ensure_review(who["id"], tid)
     return RedirectResponse("/title/%s" % tid, status_code=303)
 
 
