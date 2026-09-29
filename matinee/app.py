@@ -88,8 +88,14 @@ templates.env.globals["asset_v"] = _asset_version()
 # calls — which is what lets this app be shared without moving Devon's own
 # recommendations onto a metered key. Trusted because the gateway sets it
 # unconditionally, exactly like the identity header.
+#
+# BLANK IS LITE. Matinee declares variants, so a blank tier is a grant with no
+# tier recorded — the least capable, never the most. It used to default to
+# "full", and only the broker's Max check stood between such a grant and a
+# model call. Devon's rule: nobody but him reaches a model unless AI is
+# deliberately turned on for them, which here is granting Full.
 def variant(request):
-    return (request.headers.get("x-platform-variant") or "full").lower()
+    return (request.headers.get("x-platform-variant") or "lite").lower()
 
 
 def me(request):
