@@ -43,6 +43,7 @@
   <h2>Where you can watch</h2>
   <p class="sub">Shared, not personal: a subscription belongs to the
      household.</p>
+  {% if is_admin %}
   <div class="rowlist">
     {% for p in platforms %}
     <form method="post" action="/settings/platform" class="rowitem">
@@ -64,5 +65,16 @@
       <button type="submit">Add</button>
     </form></div>
   </details>
+  {% else %}
+  <div class="rowlist">
+    {% for p in platforms %}
+    <div class="rowitem">
+      <span class="grow"><strong>{{ p.name }}</strong></span>
+      <span class="sub">{% if p.active %}active{% else %}not active{% endif %}{% if p.can_rent %} · rentals{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="sub">An admin sets these for the household.</p>
+  {% endif %}
 </section>
 {% endblock %}

@@ -105,12 +105,29 @@ def me(request):
     return who
 
 
+def is_admin(request):
+    """In the platform's admin group. The gateway sets X-Platform-Groups
+    unconditionally, like the identity header, so a client cannot claim it."""
+    groups = (request.headers.get("x-platform-groups") or "").split(",")
+    return "admin" in (g.strip() for g in groups)
+
+
+def admin_only(request):
+    """For the few writes that change something EVERYONE shares -- merging two
+    titles, the household's platforms. Being signed in used to be enough, so
+    any friend on a lite grant could merge titles or switch off Netflix."""
+    who = me(request)
+    if not is_admin(request):
+        raise HTTPException(status_code=403, detail="Only an admin can change that.")
+    return who
+
+
 def page(request, name, **ctx):
     who = ctx.pop("who", None) or me(request)
     # Request first: the (name, context) form is the old Starlette signature and
     # newer versions read the context dict as the template name.
     return templates.TemplateResponse(request, name, {
-        "me": who, "variant": variant(request),
+        "me": who, "variant": variant(request), "is_admin": is_admin(request),
         "here": request.url.path, **ctx})
 
 
@@ -328,7 +345,7 @@ async def review(title_id: str, request: Request):
     if form.get("clear"):
         store.clear_review(who["id"], title_id)
     else:
-        store.set_review(who["id"], title_id, _int(form.get("rating")),
+        store.set_review(who["id"], title_id, _rating(form.get("rating")),
                          form.get("liked") == "on", form.get("notes") or None)
     return RedirectResponse("/title/%s" % title_id, status_code=303)
 
@@ -369,8 +386,11 @@ async def add(request: Request):
         _int(form.get("tmdb_id")), form.get("kind") or "movie", form["name"],
         _int(form.get("year")), (form.get("genres") or "").split(",") if form.get("genres") else [],
         _int(form.get("runtime")), form.get("overview") or None, form.get("poster") or None)
-    if form.get("rating"):
-        store.set_review(who["id"], tid, _int(form.get("rating")), True, None)
+    rating = _rating(form.get("rating"))
+    if rating is not None:
+        # Liked follows the score. It was always True here, so adding a film
+        # at 1/5 filed it as one you liked.
+        store.set_review(who["id"], tid, rating, rating >= 4, None)
     return RedirectResponse("/title/%s" % tid, status_code=303)
 
 
@@ -383,7 +403,7 @@ async def merge(request: Request):
     unless the person already has one on the survivor.
     """
     _check_origin(request)
-    me(request)
+    admin_only(request)
     form = await request.form()
     keep, drop = form["keep"], form["drop"]
     if keep == drop:
@@ -484,7 +504,7 @@ async def drop_rule(request: Request):
 @app.post("/settings/platform")
 async def set_platform(request: Request):
     _check_origin(request)
-    me(request)
+    admin_only(request)
     form = await request.form()
     store.set_platform(form["name"], form.get("active") == "on",
                        float(form.get("monthly_cost") or 0),
