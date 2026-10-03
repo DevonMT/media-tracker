@@ -147,13 +147,27 @@ def _check_origin(request):
 
 # ── recommend ───────────────────────────────────────────────────────────────
 
+def _kept(user_id):
+    """The Kept list with where each pick can be watched now (TMDB, cached a
+    day), because the line saved with it is only what the model guessed at pick
+    time. Never fails the page: with TMDB out the rows just carry no line."""
+    rows = store.saved(user_id)
+    if not rows:
+        return rows
+    try:
+        return blend.kept_availability(rows, store.platforms(active_only=True), tmdb)
+    except Exception as exc:  # noqa: BLE001
+        print("matinee: kept availability failed: %s" % exc, file=sys.stderr, flush=True)
+        return rows
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, watched: str | None = None):
     who = me(request)
     return page(request, "recommend.html", who=who,
                 circle=store.circle(who["id"]), picks=[], note=None,
                 chosen=[who["id"]], parties=store.parties(who["id"]),
-                saved=store.saved(who["id"]),
+                saved=_kept(who["id"]),
                 just_watched=store.title(watched) if watched else None)
 
 
@@ -168,7 +182,7 @@ async def do_recommend(request: Request):
     if variant(request) != "full":
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
                     picks=[], chosen=chosen, parties=store.parties(who["id"]),
-                    saved=store.saved(who["id"]),
+                    saved=_kept(who["id"]),
                     note="Recommendations are part of the full version of Matinee.")
 
     try:
@@ -182,14 +196,14 @@ async def do_recommend(request: Request):
               % (exc.kind, exc.code, who["id"], exc), file=sys.stderr, flush=True)
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
                     picks=[], chosen=chosen, parties=store.parties(who["id"]),
-                    saved=store.saved(who["id"]),
+                    saved=_kept(who["id"]),
                     note=exc.public_message())
 
     labels = {p["id"]: p["label"] for p in out.get("people", [])}
     return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
                 picks=out["picks"], note=out.get("note"), chosen=chosen,
                 labels=labels, rewatch=rewatch, parties=store.parties(who["id"]),
-                saved=store.saved(who["id"]))
+                saved=_kept(who["id"]))
 
 
 @app.post("/keep")
@@ -207,7 +221,7 @@ async def keep(request: Request):
     if _in_place(request):
         # The Kept list, redrawn, so the pick appears there without a reload.
         return templates.TemplateResponse(request, "_kept.html",
-                                          {"saved": store.saved(who["id"])})
+                                          {"saved": _kept(who["id"])})
     return RedirectResponse("/", status_code=303)
 
 

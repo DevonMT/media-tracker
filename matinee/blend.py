@@ -14,6 +14,7 @@ presenting the one figure that does not answer the question.
 """
 import json
 import re
+import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 
@@ -159,6 +160,35 @@ def _norm_provider(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").replace("+", " plus ").lower())
 
 
+def availability(p, platforms, tmdb):
+    """Where one title can be watched by the group, from TMDB.
+
+    Returns (state, where): "streaming" (where = the group's services that
+    carry it), "rent" (where = ["Rent: ..."], only if a service can rent),
+    "gone" (TMDB knows it, but none of the group's services carry it),
+    "missing" (TMDB has never heard of it) or "unknown" (TMDB unreachable).
+    """
+    names = {_norm_provider(x["name"]): x["name"] for x in platforms}
+    can_rent = any(x.get("can_rent") for x in platforms)
+    kind = "show" if p.get("kind") == "show" else "movie"
+    try:
+        match = tmdb.find_match(p.get("name"), p.get("year"), kind)
+        if not match:
+            return "missing", []
+        prov = tmdb.get_watch_providers(match["tmdb_id"], match.get("type") or kind)
+    except Exception:  # noqa: BLE001 — unverified
+        return "unknown", []
+    streams = (prov.get("flatrate") or []) + (prov.get("free") or []) + (prov.get("ads") or [])
+    where = sorted({names[k] for pn in map(_norm_provider, streams)
+                    for k in names if k and (k in pn or pn in k)})
+    if where:
+        return "streaming", where
+    rentable = sorted(set((prov.get("rent") or []) + (prov.get("buy") or [])))
+    if can_rent and rentable:
+        return "rent", ["Rent: " + ", ".join(rentable[:2])]
+    return "gone", []
+
+
 def where_to_watch(picks, platforms, tmdb, workers=6):
     """Check each pick against TMDB: does it exist, and can the group watch it?
 
@@ -169,30 +199,50 @@ def where_to_watch(picks, platforms, tmdb, workers=6):
     unverified: a network hiccup is not the pick's fault, and an empty page
     would be worse than an unchecked card.
     """
-    names = {_norm_provider(p["name"]): p["name"] for p in platforms}
-    can_rent = any(p.get("can_rent") for p in platforms)
-
     def check(p):
-        kind = "show" if p.get("kind") == "show" else "movie"
-        try:
-            match = tmdb.find_match(p.get("name"), p.get("year"), kind)
-            if not match:
-                return None
-            prov = tmdb.get_watch_providers(match["tmdb_id"], match.get("type") or kind)
-        except Exception:  # noqa: BLE001 — unverified, kept
+        state, where = availability(p, platforms, tmdb)
+        if state == "unknown":
             return dict(p, where=[], verified=False)
-        streams = (prov.get("flatrate") or []) + (prov.get("free") or []) + (prov.get("ads") or [])
-        where = sorted({names[k] for pn in map(_norm_provider, streams)
-                        for k in names if k and (k in pn or pn in k)})
-        if where:
+        if state in ("streaming", "rent"):
             return dict(p, where=where, verified=True)
-        rentable = sorted(set((prov.get("rent") or []) + (prov.get("buy") or [])))
-        if can_rent and rentable:
-            return dict(p, where=["Rent: " + ", ".join(rentable[:2])], verified=True)
         return None
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return [r for r in pool.map(check, picks) if r is not None]
+
+
+# Kept picks are checked when the list is drawn, not when the pick was made:
+# a service drops a title, or the model guessed wrong (Poker Face on Netflix,
+# it is on Peacock). A day is plenty for "where do we watch this tonight", and
+# the cache means a page load costs one TMDB call per pick once a day. Held in
+# the process: a restart only means one more round of lookups.
+FRESH_FOR = 24 * 3600
+UNKNOWN_FOR = 10 * 60  # TMDB down: try again soon, but not on every page load
+_seen = {}
+
+
+def kept_availability(rows, platforms, tmdb, now=None, workers=6):
+    """Each kept pick with `where` (services, or "Rent: ...") and `gone` (True
+    when TMDB lists it and no active service carries it). A pick TMDB cannot
+    place, or cannot be reached for, gets neither: no line is better than a
+    wrong one."""
+    now = time.time() if now is None else now
+    plats = tuple(sorted(x["name"] for x in platforms if x.get("name")))
+    rent = any(x.get("can_rent") for x in platforms)
+
+    def check(r):
+        key = (title_key(r.get("name")), r.get("year"), r.get("kind"), plats, rent)
+        hit = _seen.get(key)
+        if hit and now - hit[0] < hit[1]:
+            return hit[2]
+        state, where = availability(r, platforms, tmdb)
+        _seen[key] = (now, UNKNOWN_FOR if state == "unknown" else FRESH_FOR, (state, where))
+        return state, where
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        found = list(pool.map(check, rows))
+    return [dict(r, where=where if state in ("streaming", "rent") else [],
+                 gone=state == "gone") for r, (state, where) in zip(rows, found)]
 
 
 def filter_vetoes(picks, rules):
