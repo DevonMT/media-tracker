@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Import · Matinee{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <h1>Import from Netflix</h1>
+  <p>Seed your library with what you have already watched, so it stops
+     turning up as a pick. Nothing is filed until you have looked.</p>
+</div>
+{% if note %}<p class="note">{{ note }}</p>{% endif %}
+
+{% if done %}
+<p class="note">Filed {{ done.added }} as seen{% if done.local %}, and {{ done.local }} without a TMDB match{% endif %}.
+   They carry no rating, so they only keep picks away.
+   <a href="/library">See the library.</a></p>
+
+{% elif preview %}
+<form method="post" action="/import/confirm">
+  {% if preview.profiles %}
+  <p class="meta">This file holds several profiles
+    ({% for n, c in preview.profiles.items() %}{{ n or 'unnamed' }}: {{ c }}{% if not loop.last %}, {% endif %}{% endfor %}).
+    {% if preview.profile %}Showing {{ preview.profile }} only.{% else %}Showing all of them. To import one person, start over and name the profile.{% endif %}</p>
+  {% endif %}
+  {% if preview.truncated %}<p class="meta warn">Only the first 400 titles were looked up; {{ preview.truncated }} more were skipped. Import again after this one to pick up the rest.</p>{% endif %}
+
+  {% if preview.matched %}
+  <h2>Will be filed as seen ({{ preview.matched | length }})</h2>
+  <div class="rowlist">
+    {% for m in preview.matched %}
+    <label class="rowitem">
+      <input type="checkbox" name="pick" value="{{ loop.index0 }}" checked>
+      <span class="grow"><strong>{{ m.name }}</strong>
+        <span class="meta">{{ m.year or '' }} · {{ m.kind }}{% if m.last %} · last watched {{ m.last }}{% endif %}</span></span>
+      <input type="hidden" name="tmdb_id_{{ loop.index0 }}" value="{{ m.tmdb_id }}">
+      <input type="hidden" name="name_{{ loop.index0 }}" value="{{ m.name }}">
+      <input type="hidden" name="kind_{{ loop.index0 }}" value="{{ m.kind }}">
+      <input type="hidden" name="year_{{ loop.index0 }}" value="{{ m.year or '' }}">
+      <input type="hidden" name="genres_{{ loop.index0 }}" value="{{ m.genres | join('/') }}">
+      <input type="hidden" name="overview_{{ loop.index0 }}" value="{{ m.overview or '' }}">
+      <input type="hidden" name="last_{{ loop.index0 }}" value="{{ m.last or '' }}">
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if preview.already %}<p class="meta">{{ preview.already }} more are already in your library and were left alone.</p>{% endif %}
+
+  {% if preview.unmatched %}
+  <h2>No TMDB match ({{ preview.unmatched | length }})</h2>
+  <p class="meta">Left unticked: TMDB had no title named exactly this, and a guess would hide the wrong film.
+     Tick any to file them as local titles, or find them with <a href="/add">Add a title</a>.</p>
+  <div class="rowlist">
+    {% for u in preview.unmatched %}
+    <label class="rowitem dim">
+      <input type="checkbox" name="local" value="{{ loop.index0 }}">
+      <span class="grow"><strong>{{ u.name }}</strong>
+        <span class="meta">{{ u.kind }} · {{ u.reason }}</span></span>
+      <input type="hidden" name="lname_{{ loop.index0 }}" value="{{ u.name }}">
+      <input type="hidden" name="lkind_{{ loop.index0 }}" value="{{ u.kind }}">
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if preview.matched or preview.unmatched %}
+  <p><button type="submit">File the ticked titles as seen</button>
+     <a href="/import"><button class="ghost" type="button">Start over</button></a></p>
+  {% else %}
+  <p class="empty">Nothing new in that file. <a href="/import">Try another.</a></p>
+  {% endif %}
+</form>
+
+{% else %}
+<details class="form" open>
+  <summary>Get your file from Netflix</summary>
+  <div class="inner">
+    <p class="meta">On netflix.com: Account, then your profile, then Viewing activity,
+       then “Download all” at the bottom. Upload that ViewingActivity.csv here.</p>
+  </div>
+</details>
+<form method="post" action="/import" enctype="multipart/form-data">
+  <label class="field"><span>ViewingActivity.csv</span>
+    <input type="file" name="file" accept=".csv,text/csv" required></label>
+  <label class="field"><span>Profile (optional)</span>
+    <input name="profile" placeholder="Only this profile; blank for all"></label>
+  <button type="submit">Look at it</button>
+</form>
+{% endif %}
+{% endblock %}

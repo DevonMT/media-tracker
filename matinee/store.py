@@ -311,14 +311,26 @@ def title_by_name(name, year=None):
     return rows[0]["id"] if len(rows) == 1 else None
 
 
-def ensure_review(user_id, title_id):
+def ensure_review(user_id, title_id, watched_at=None):
     """An empty opinion, so a title you added without rating it is yours.
 
     The library shows what you have an opinion on (see library()), and adding a
     film to rate later is an opinion that you want to. DO NOTHING, never an
     update: adding a film you already rated must not wipe the rating."""
-    return x("""INSERT INTO review (user_id, title_id) VALUES (%s,%s)
-                ON CONFLICT (user_id, title_id) DO NOTHING""", (user_id, title_id))
+    return x("""INSERT INTO review (user_id, title_id, watched_at) VALUES (%s,%s,%s)
+                ON CONFLICT (user_id, title_id) DO NOTHING""",
+             (user_id, title_id, watched_at))
+
+
+def reviewed_tmdb_ids(user_id, tmdb_ids):
+    """Which of these TMDB ids you already have an opinion on, so an import
+    shows them as already in your library instead of offering them again."""
+    if not tmdb_ids:
+        return set()
+    rows = q("""SELECT t.tmdb_id FROM title t JOIN review r ON r.title_id = t.id
+                 WHERE r.user_id=%s AND t.tmdb_id = ANY(%s)""",
+             (user_id, list(tmdb_ids)))
+    return {r["tmdb_id"] for r in rows}
 
 
 def set_review(user_id, title_id, rating=None, liked=None, notes=None,

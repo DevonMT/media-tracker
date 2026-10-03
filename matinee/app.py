@@ -20,7 +20,7 @@ import hashlib
 import hmac
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -31,7 +31,7 @@ from fastapi.templating import Jinja2Templates
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from matinee import blend, store  # noqa: E402
+from matinee import blend, netflix, store  # noqa: E402
 import ai  # noqa: E402
 import tmdb  # noqa: E402
 
@@ -414,6 +414,92 @@ async def add(request: Request):
     else:
         store.ensure_review(who["id"], tid)
     return RedirectResponse("/title/%s" % tid, status_code=303)
+
+
+# ── import ──────────────────────────────────────────────────────────────────
+
+MAX_UPLOAD = 5 * 1024 * 1024   # a few years of viewing activity is well under 1 MB
+MAX_IMPORT = 1000
+
+
+def _import_page(request, who, **ctx):
+    ctx.setdefault("preview", None)
+    ctx.setdefault("done", None)
+    ctx.setdefault("note", None)
+    return page(request, "import.html", who=who, **ctx)
+
+
+@app.get("/import", response_class=HTMLResponse)
+def import_form(request: Request):
+    return _import_page(request, me(request))
+
+
+@app.post("/import", response_class=HTMLResponse)
+async def import_preview(request: Request):
+    """Read a Netflix viewing-activity CSV and SHOW what would be filed.
+
+    Nothing is written here. Matching is plain code (no model, so no gate), but
+    marking the wrong film as seen hides it from every future pick, so the
+    person looks first and /import/confirm writes only what stays ticked."""
+    _check_origin(request)
+    who = me(request)
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        return _import_page(request, who, note="Choose the ViewingActivity.csv file.")
+    raw = await upload.read(MAX_UPLOAD + 1)
+    if not raw or len(raw) > MAX_UPLOAD:
+        return _import_page(request, who, note="That file is empty or too large to be a viewing history.")
+    profile = (form.get("profile") or "").strip()
+    try:
+        titles, profiles = netflix.parse(raw.decode("utf-8-sig", errors="replace"),
+                                         profile or None)
+        matched, unmatched, truncated = netflix.match(titles)
+    except ValueError as exc:
+        return _import_page(request, who, note=str(exc))
+    have = store.reviewed_tmdb_ids(who["id"], [m["tmdb_id"] for m in matched])
+    fresh = [m for m in matched if m["tmdb_id"] not in have]
+    return _import_page(request, who, preview={
+        "matched": fresh, "already": len(matched) - len(fresh), "unmatched": unmatched,
+        "truncated": truncated, "profiles": profiles if len(profiles) > 1 else None,
+        "profile": profile})
+
+
+@app.post("/import/confirm", response_class=HTMLResponse)
+async def import_confirm(request: Request):
+    """File what the person left ticked, as seen and unrated.
+
+    ensure_review never touches a rating you already gave, and an unrated review
+    is what recommend() counts as seen (store.seen_by). The unmatched ones are
+    unticked by default: ticked, each becomes a local title with no TMDB id."""
+    _check_origin(request)
+    who = me(request)
+    form = await request.form()
+    added = local = 0
+    for i in form.getlist("pick")[:MAX_IMPORT]:
+        tmdb_id, name = _int(form.get("tmdb_id_" + i)), (form.get("name_" + i) or "").strip()
+        if not tmdb_id or not name:
+            continue
+        try:
+            seen_on = date.fromisoformat(form.get("last_" + i) or "")
+        except ValueError:
+            seen_on = None
+        tid = store.upsert_title(
+            tmdb_id, "show" if form.get("kind_" + i) == "show" else "movie", name,
+            _int(form.get("year_" + i)),
+            [g for g in (form.get("genres_" + i) or "").split("/") if g],
+            None, form.get("overview_" + i) or None, None)
+        store.ensure_review(who["id"], tid, seen_on)
+        added += 1
+    for j in form.getlist("local")[:MAX_IMPORT]:
+        name = (form.get("lname_" + j) or "").strip()
+        if not name:
+            continue
+        kind = "show" if form.get("lkind_" + j) == "show" else "movie"
+        tid = store.title_by_name(name) or store.upsert_title(None, kind, name, None)
+        store.ensure_review(who["id"], tid)
+        local += 1
+    return _import_page(request, who, done={"added": added, "local": local})
 
 
 @app.post("/merge")
