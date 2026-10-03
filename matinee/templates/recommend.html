@@ -67,7 +67,7 @@
     {% if p.overview %}<p class="overview">{{ p.overview }}</p>{% endif %}
     <p class="reason">{{ p.reason }}</p>
     {# Checked against TMDB for your services, not the model's guess. #}
-    {% if p.where %}<p class="where">On {{ p.where | join(', ') }}</p>{% endif %}
+    {% if p.where %}<p class="where">{{ '' if p.where[0].startswith(('Rent: ', 'Buy: ')) else 'On ' }}{{ p.where | join(' · ') if p.where[0].startswith(('Rent: ', 'Buy: ')) else p.where | join(', ') }}</p>{% endif %}
 
     {#  The floor, named. "weakest fit: Gran, 62" is the number that decides
         whether you put it on — an average would be the one figure that does

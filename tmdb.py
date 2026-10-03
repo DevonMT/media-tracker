@@ -117,15 +117,18 @@ def find_match(title: str, year: int | None, media_type: str) -> dict | None:
 
 def get_watch_providers(tmdb_id: int, media_type: str, region: str = "US") -> dict:
     """Return {'flatrate': [...], 'rent': [...], 'buy': [...], 'free': [...],
-    'ads': [...]} of provider names available in `region` (empty on any miss)."""
+    'ads': [...]} of provider names available in `region`. A title with no listing
+    for the region gives empty lists; a failed call (rate limit, outage, bad key)
+    raises, so callers can tell "not available" from "could not check"."""
     endpoint = "movie" if media_type == "movie" else "tv"
     resp = requests.get(
         f"{BASE_URL}/{endpoint}/{tmdb_id}/watch/providers",
         headers=_headers(),
         timeout=8,
     )
-    if resp.status_code != 200:
+    if resp.status_code == 404:
         return {}
+    resp.raise_for_status()
     region_data = resp.json().get("results", {}).get(region, {})
     return {
         key: [p["provider_name"] for p in region_data.get(key, [])]

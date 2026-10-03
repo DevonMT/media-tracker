@@ -9,7 +9,7 @@
     <div class="rowitem">
       <span class="grow"><strong>{{ s.name }}</strong>
         <span class="meta">{{ s.year or '' }}{% if s.floor_score %} · weakest fit {{ s.floor_score }}{% endif %}</span>
-        {% if s.where %}<span class="meta where">On {{ s.where | join(', ') }}</span>
+        {% if s.where %}<span class="meta where">{{ '' if s.where[0].startswith(('Rent: ', 'Buy: ')) else 'On ' }}{{ s.where | join(' · ') if s.where[0].startswith(('Rent: ', 'Buy: ')) else s.where | join(', ') }}</span>
         {% elif s.gone %}<span class="meta warn">Not on any of your services now</span>{% endif %}</span>
       <span class="acts">
         <button class="mini watch-open" type="button" aria-expanded="false"

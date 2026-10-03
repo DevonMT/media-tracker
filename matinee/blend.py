@@ -164,7 +164,7 @@ def availability(p, platforms, tmdb):
     """Where one title can be watched by the group, from TMDB.
 
     Returns (state, where): "streaming" (where = the group's services that
-    carry it), "rent" (where = ["Rent: ..."], only if a service can rent),
+    carry it), "rent" (where = ["Rent: ...", "Buy: ..."], only if a service can rent),
     "gone" (TMDB knows it, but none of the group's services carry it),
     "missing" (TMDB has never heard of it) or "unknown" (TMDB unreachable).
     """
@@ -183,9 +183,10 @@ def availability(p, platforms, tmdb):
                     for k in names if k and (k in pn or pn in k)})
     if where:
         return "streaming", where
-    rentable = sorted(set((prov.get("rent") or []) + (prov.get("buy") or [])))
-    if can_rent and rentable:
-        return "rent", ["Rent: " + ", ".join(rentable[:2])]
+    lines = [label + ": " + ", ".join(sorted(set(prov.get(key) or []))[:2])
+             for label, key in (("Rent", "rent"), ("Buy", "buy")) if prov.get(key)]
+    if can_rent and lines:
+        return "rent", lines
     return "gone", []
 
 
@@ -222,7 +223,7 @@ _seen = {}
 
 
 def kept_availability(rows, platforms, tmdb, now=None, workers=6):
-    """Each kept pick with `where` (services, or "Rent: ...") and `gone` (True
+    """Each kept pick with `where` (services, or "Rent: ..."/"Buy: ...") and `gone` (True
     when TMDB lists it and no active service carries it). A pick TMDB cannot
     place, or cannot be reached for, gets neither: no line is better than a
     wrong one."""

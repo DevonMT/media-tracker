@@ -193,16 +193,18 @@ class WhereToWatch(unittest.TestCase):
 
 
 class KeptAvailability(unittest.TestCase):
-    PLATS = [{"name": "Peacock", "can_rent": False}, {"name": "Netflix", "can_rent": False}]
+    # The live active set: Peacock is not one of them.
+    PLATS = [{"name": "Amazon Prime", "can_rent": True}, {"name": "Digital Rental", "can_rent": True},
+             {"name": "Netflix", "can_rent": False}]
 
     def setUp(self):
         blend._seen.clear()
 
     def test_shows_the_real_service_not_the_pick_time_guess(self):
-        tm = FakeTmdb({"Poker Face": {"flatrate": ["Peacock"]}})
+        tm = FakeTmdb({"Poker Face": {"flatrate": ["Netflix"]}})
         row = {"name": "Poker Face", "year": 2023, "kind": "show", "platform": "Netflix"}
         out = blend.kept_availability([row], self.PLATS, tm, now=0)
-        self.assertEqual(out[0]["where"], ["Peacock"])
+        self.assertEqual(out[0]["where"], ["Netflix"])
         self.assertFalse(out[0]["gone"])
 
     def test_title_off_every_active_service_is_flagged(self):
@@ -215,6 +217,27 @@ class KeptAvailability(unittest.TestCase):
         out = blend.kept_availability([{"name": "Arrival"}], self.PLATS, FakeTmdb({}, fail=True), now=0)
         self.assertEqual((out[0]["where"], out[0]["gone"]), ([], False))
 
+    def test_buy_only_is_labelled_buy_not_rent(self):
+        tm = FakeTmdb({"Poker Face": {"flatrate": ["Peacock"], "buy": ["Apple TV Store", "Amazon Video"]}})
+        out = blend.kept_availability([{"name": "Poker Face", "kind": "show"}], self.PLATS, tm, now=0)
+        self.assertEqual(out[0]["where"], ["Buy: Amazon Video, Apple TV Store"])
+        self.assertFalse(out[0]["gone"])
+
+    def test_rent_and_buy_are_kept_apart(self):
+        tm = FakeTmdb({"Clue": {"rent": ["Apple TV"], "buy": ["Amazon Video"]}})
+        out = blend.kept_availability([{"name": "Clue"}], self.PLATS, tm, now=0)
+        self.assertEqual(out[0]["where"], ["Rent: Apple TV", "Buy: Amazon Video"])
+
+    def test_failed_providers_call_is_unknown_not_gone(self):
+        tm = FakeTmdb({"Arrival": {}})
+        def boom(tmdb_id, kind):
+            raise RuntimeError("429")
+        tm.get_watch_providers = boom
+        out = blend.kept_availability([{"name": "Arrival"}], self.PLATS, tm, now=0)
+        self.assertEqual((out[0]["where"], out[0]["gone"]), ([], False))
+        tm.get_watch_providers = lambda i, k: {"flatrate": ["Netflix"]}
+        self.assertEqual(blend.kept_availability([{"name": "Arrival"}], self.PLATS, tm, now=blend.UNKNOWN_FOR + 1)[0]["where"], ["Netflix"])
+
     def test_unknown_title_is_not_flagged(self):
         out = blend.kept_availability([{"name": "Nope"}], self.PLATS, FakeTmdb({}), now=0)
         self.assertEqual((out[0]["where"], out[0]["gone"]), ([], False))
@@ -223,9 +246,9 @@ class KeptAvailability(unittest.TestCase):
         tm = FakeTmdb({"Arrival": {"flatrate": ["Netflix"]}})
         rows = [{"name": "Arrival", "year": 2016, "kind": "movie"}]
         blend.kept_availability(rows, self.PLATS, tm, now=0)
-        tm.titles["Arrival"] = {"flatrate": ["Peacock"]}
+        tm.titles["Arrival"] = {"flatrate": ["Amazon Prime Video"]}
         self.assertEqual(blend.kept_availability(rows, self.PLATS, tm, now=3600)[0]["where"], ["Netflix"])
-        self.assertEqual(blend.kept_availability(rows, self.PLATS, tm, now=blend.FRESH_FOR + 1)[0]["where"], ["Peacock"])
+        self.assertEqual(blend.kept_availability(rows, self.PLATS, tm, now=blend.FRESH_FOR + 1)[0]["where"], ["Amazon Prime"])
 
     def test_a_failed_lookup_is_retried_soon(self):
         tm = FakeTmdb({"Arrival": {"flatrate": ["Netflix"]}}, fail=True)
