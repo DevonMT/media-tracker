@@ -31,7 +31,8 @@ import tmdb
 PRE_SECONDS = 60
 MIN_SECONDS = 300
 
-# More than this many distinct titles is a lookup per title, so cap it and say so.
+# Titles looked up per upload: a lookup each, so a long file is read in batches
+# of this many, by position (match's `offset`), and the page offers the next one.
 MAX_TITLES = 400
 
 # A segment that says "this is a season/series of a show", not an episode name.
@@ -107,14 +108,20 @@ def _lookup(candidates):
     return None
 
 
-def match(titles, workers=6):
-    """Split parsed titles into (matched, unmatched, truncated).
+def match(titles, workers=6, offset=0):
+    """Split parsed titles into (matched, unmatched, remaining).
+
+    Looks up the batch of MAX_TITLES starting at `offset` (a position in the
+    file's own order, so the same file gives the same batches every time).
+    `remaining` is how many titles lie beyond this batch; the next batch starts
+    at offset + MAX_TITLES.
 
     matched: one entry per TMDB id (a show and its episodes are one title).
     unmatched: [{"name", "kind", "reason"}], reason "no match" or "TMDB unavailable"."""
     items = list(titles.items())
-    truncated = max(0, len(items) - MAX_TITLES)
-    items = items[:MAX_TITLES]
+    offset = max(0, offset)
+    remaining = max(0, len(items) - offset - MAX_TITLES)
+    items = items[offset:offset + MAX_TITLES]
 
     def one(item):
         key, t = item
@@ -146,4 +153,4 @@ def match(titles, workers=6):
             "overview": hit.get("overview") or None,
             "seconds": t["seconds"], "last": t["last"]}
     matched = [m for m in by_id.values() if m["seconds"] >= MIN_SECONDS]
-    return matched, unmatched, truncated
+    return matched, unmatched, remaining

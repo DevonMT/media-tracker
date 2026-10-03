@@ -7,6 +7,8 @@ The fixture is shaped like a real ViewingActivity.csv: one row per play,
 episodes as "Show: Season N: Episode", trailers marked in Supplemental Video
 Type, and a second profile in the same file.
 """
+import html
+import json
 import os
 import re
 import unittest
@@ -35,6 +37,12 @@ CATALOG = {
 
 def fake_find_match(title, year, media_type):
     return CATALOG.get(netflix.tmdb._norm_for_match(title))
+
+
+def ticked(page_html, name="pick"):
+    """The values a browser would post for every ticked box on the page."""
+    return [html.unescape(v) for v in
+            re.findall(r"""<input type="checkbox" name="%s"[^>]*?\svalue='([^']*)'""" % name, page_html)]
 
 
 def read():
@@ -167,14 +175,13 @@ class Flow(unittest.TestCase):
 
     def test_confirm_files_the_ticked_as_unrated_seen(self):
         pre = self.upload().text
-        picks = re.findall(r'name="pick" value="(\d+)"', pre)
+        picks = ticked(pre)
         self.assertGreaterEqual(len(picks), 4)
-        form = {"pick": picks}
-        for m in re.finditer(r'name="((?:tmdb_id|name|kind|year|genres|overview|last)_\d+)" value="([^"]*)"', pre):
-            form[m.group(1)] = m.group(2).replace("&#39;", "'").replace("&amp;", "&")
+        form = {"pick": ticked(pre)}
         r = self.client.post("/import/confirm", headers=self.h, data=form)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.store.ensure_review.call_count, len(picks))
+        self.assertEqual(r.text.count("Look at the next batch"), 0)   # a short file has no next batch
         # Unrated: only ensure_review, never set_review, so no rating is invented
         # and an existing one is never overwritten.
         self.store.set_review.assert_not_called()
@@ -188,7 +195,7 @@ class Flow(unittest.TestCase):
         self.assertIn("Filed 0 as seen", r.text)
         self.store.ensure_review.assert_not_called()
         r = self.client.post("/import/confirm", headers=self.h,
-                             data={"local": "0", "lname_0": "Zzyzx Road Obscure Thing", "lkind_0": "movie"})
+                             data={"local": json.dumps({"name": "Zzyzx Road Obscure Thing", "kind": "movie"})})
         self.assertIn("without a TMDB match", r.text)
         self.store.upsert_title.assert_called_once_with(None, "movie", "Zzyzx Road Obscure Thing", None)
         self.store.ensure_review.assert_called_once_with("u1", "t-Zzyzx Road Obscure Thing")
@@ -196,6 +203,113 @@ class Flow(unittest.TestCase):
     def test_a_forged_origin_is_refused(self):
         r = self.client.post("/import/confirm", headers={**self.h, "origin": "https://evil.example"}, data={})
         self.assertEqual(r.status_code, 403)
+
+
+def history(n, dated="2026-03-01"):
+    """A CSV of n seasonless one-episode titles ("Show 17: Pilot"), the way
+    Netflix writes a show with no Season marker: each its own key."""
+    rows = ["Profile Name,Start Time,Duration,Title,Supplemental Video Type"]
+    rows += ["A,%s 10:00:00,0:30:00,Show %d: Pilot," % (dated, i) for i in range(n)]
+    return "\n".join(rows) + "\n"
+
+
+def many_match(title, year, media_type):
+    """Every "Show N" is a TMDB show of its own; anything else is unknown."""
+    m = re.fullmatch(r"show (\d+)", netflix.tmdb._norm_for_match(title))
+    return {"tmdb_id": 1000 + int(m.group(1)), "title": title, "type": "show", "year": 2020,
+            "genre": "Drama/Mystery", "overview": "o"} if m else None
+
+
+class Big(unittest.TestCase):
+    """Long histories: the confirm form must post, and the file is read in batches."""
+
+    def setUp(self):
+        self.store = mock.patch.object(appmod, "store").start()
+        self.store.person_by_email.return_value = {"id": "u1", "email": "d@x", "name": "Devon"}
+        self.store.reviewed_tmdb_ids.return_value = set()
+        self.store.upsert_title.side_effect = lambda *a, **k: "t-%s" % a[0]
+        mock.patch.object(netflix.tmdb, "find_match", side_effect=many_match).start()
+        self.addCleanup(mock.patch.stopall)
+        self.client = TestClient(appmod.app)
+        self.h = {"x-platform-user": "d@x", "host": "testserver"}
+
+    def upload(self, text, **data):
+        return self.client.post("/import", headers=self.h, data=data,
+                                files={"file": ("ViewingActivity.csv", text.encode(), "text/csv")})
+
+    def confirm(self, pre, picks):
+        form = {"pick": picks}
+        for name in ("next_offset", "remaining", "profile"):
+            m = re.search(r'name="%s" value="([^"]*)"' % name, pre)
+            if m:
+                form[name] = m.group(1)
+        return self.client.post("/import/confirm", headers=self.h, data=form)
+
+    def test_two_hundred_titles_confirm(self):
+        """Eight fields a row put 130 titles over Starlette's 1000-field limit
+        and the whole confirm came back 400."""
+        pre = self.upload(history(200)).text
+        picks = ticked(pre)
+        self.assertEqual(len(picks), 200)
+        r = self.confirm(pre, picks)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Filed 200 as seen", r.text)
+        self.assertEqual(self.store.ensure_review.call_count, 200)
+
+    def test_a_full_batch_of_matched_and_unmatched_confirms(self):
+        text = history(netflix.MAX_TITLES - 100) + "".join(
+            "A,2026-03-01 10:00:00,0:30:00,Nobody Knows %d,\n" % i for i in range(100))
+        pre = self.upload(text).text
+        form = {"pick": ticked(pre), "local": ticked(pre, "local")}
+        self.assertEqual((len(form["pick"]), len(form["local"])), (netflix.MAX_TITLES - 100, 100))
+        r = self.client.post("/import/confirm", headers=self.h, data=form)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.store.ensure_review.call_count, netflix.MAX_TITLES)
+
+    def test_a_tampered_row_is_skipped_not_a_crash(self):
+        r = self.client.post("/import/confirm", headers=self.h,
+                             data={"pick": ["not json", "[1]", json.dumps({"name": "x"})],
+                                   "local": ["{"]})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Filed 0 as seen", r.text)
+        self.store.ensure_review.assert_not_called()
+
+    def test_the_rest_of_a_long_file_is_reachable_in_batches(self):
+        """Importing the same file again used to look up the same first 400
+        titles, so everything past them was never reached."""
+        total = netflix.MAX_TITLES + 150
+        text = history(total)
+        first = self.upload(text).text
+        self.assertEqual(len(ticked(first)), netflix.MAX_TITLES)
+        self.assertIn("150 more titles", first)
+        self.assertIn('name="offset" value="%d"' % netflix.MAX_TITLES, first)
+        seen = {json.loads(v)["name"] for v in ticked(first)}
+        second = self.upload(text, offset=str(netflix.MAX_TITLES)).text
+        rest = {json.loads(v)["name"] for v in ticked(second)}
+        self.assertEqual(len(rest), 150)
+        self.assertFalse(seen & rest)
+        self.assertEqual(len(seen | rest), total)
+        self.assertNotIn("more titles in this file", second)   # the last batch
+
+    def test_confirming_a_batch_offers_the_next_one(self):
+        text = history(netflix.MAX_TITLES + 5)
+        pre = self.upload(text).text
+        r = self.confirm(pre, ticked(pre))
+        self.assertIn("5 more titles", r.text)
+        self.assertIn('name="offset" value="%d"' % netflix.MAX_TITLES, r.text)
+
+    def test_the_profile_survives_into_the_next_batch(self):
+        text = history(netflix.MAX_TITLES + 5)
+        pre = self.upload(text, profile="A").text
+        r = self.confirm(pre, ticked(pre))
+        self.assertIn('name="profile" value="A"', r.text)
+
+    def test_offset_is_by_position_in_the_file(self):
+        titles, _ = netflix.parse(history(10))
+        names = [m["name"] for m in netflix.match(titles, offset=4)[0]]
+        self.assertEqual(names, ["Show %d" % i for i in range(4, 10)])
+        self.assertEqual(netflix.match(titles, offset=4)[2], 0)
+        self.assertEqual(netflix.match(titles, offset=-3)[2], 0)
 
 
 if __name__ == "__main__":

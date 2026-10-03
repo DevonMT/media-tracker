@@ -6,12 +6,24 @@
   <p>Seed your library with what you have already watched, so it stops
      turning up as a pick. Nothing is filed until you have looked.</p>
 </div>
+{% macro next_batch(more) %}
+<form method="post" action="/import" enctype="multipart/form-data">
+  <p class="meta warn">{{ more.remaining }} more titles in this file have not been looked at yet.
+     Upload the same file again for the next batch.</p>
+  <input type="hidden" name="offset" value="{{ more.offset }}">
+  <input type="hidden" name="profile" value="{{ more.profile }}">
+  <label class="field"><span>ViewingActivity.csv</span>
+    <input type="file" name="file" accept=".csv,text/csv" required></label>
+  <button type="submit">Look at the next batch</button>
+</form>
+{% endmacro %}
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
 
 {% if done %}
 <p class="note">Filed {{ done.added }} as seen{% if done.local %}, and {{ done.local }} without a TMDB match{% endif %}.
    They carry no rating, so they only keep picks away.
    <a href="/library">See the library.</a></p>
+{% if more %}{{ next_batch(more) }}{% endif %}
 
 {% elif preview %}
 <form method="post" action="/import/confirm">
@@ -20,23 +32,22 @@
     ({% for n, c in preview.profiles.items() %}{{ n or 'unnamed' }}: {{ c }}{% if not loop.last %}, {% endif %}{% endfor %}).
     {% if preview.profile %}Showing {{ preview.profile }} only.{% else %}Showing all of them. To import one person, start over and name the profile.{% endif %}</p>
   {% endif %}
-  {% if preview.truncated %}<p class="meta warn">Only the first 400 titles were looked up; {{ preview.truncated }} more were skipped. Import again after this one to pick up the rest.</p>{% endif %}
+  {% if more %}
+  <input type="hidden" name="next_offset" value="{{ more.offset }}">
+  <input type="hidden" name="remaining" value="{{ more.remaining }}">
+  <input type="hidden" name="profile" value="{{ more.profile }}">
+  {% endif %}
+  {% if preview.batch %}<p class="meta warn">Titles {{ preview.batch[0] }} to {{ preview.batch[1] }} of {{ preview.batch[2] }} in the file.{% if more %} File these, then upload the same file again for the next batch.{% endif %}</p>{% endif %}
 
   {% if preview.matched %}
   <h2>Will be filed as seen ({{ preview.matched | length }})</h2>
   <div class="rowlist">
     {% for m in preview.matched %}
     <label class="rowitem">
-      <input type="checkbox" name="pick" value="{{ loop.index0 }}" checked>
+      <input type="checkbox" name="pick" checked
+             value='{{ {"tmdb_id": m.tmdb_id, "name": m.name, "kind": m.kind, "year": m.year, "genres": m.genres, "overview": m.overview, "last": m.last} | tojson }}'>
       <span class="grow"><strong>{{ m.name }}</strong>
         <span class="meta">{{ m.year or '' }} · {{ m.kind }}{% if m.last %} · last watched {{ m.last }}{% endif %}</span></span>
-      <input type="hidden" name="tmdb_id_{{ loop.index0 }}" value="{{ m.tmdb_id }}">
-      <input type="hidden" name="name_{{ loop.index0 }}" value="{{ m.name }}">
-      <input type="hidden" name="kind_{{ loop.index0 }}" value="{{ m.kind }}">
-      <input type="hidden" name="year_{{ loop.index0 }}" value="{{ m.year or '' }}">
-      <input type="hidden" name="genres_{{ loop.index0 }}" value="{{ m.genres | join('/') }}">
-      <input type="hidden" name="overview_{{ loop.index0 }}" value="{{ m.overview or '' }}">
-      <input type="hidden" name="last_{{ loop.index0 }}" value="{{ m.last or '' }}">
     </label>
     {% endfor %}
   </div>
@@ -50,11 +61,10 @@
   <div class="rowlist">
     {% for u in preview.unmatched %}
     <label class="rowitem dim">
-      <input type="checkbox" name="local" value="{{ loop.index0 }}">
+      <input type="checkbox" name="local"
+             value='{{ {"name": u.name, "kind": u.kind} | tojson }}'>
       <span class="grow"><strong>{{ u.name }}</strong>
         <span class="meta">{{ u.kind }} · {{ u.reason }}</span></span>
-      <input type="hidden" name="lname_{{ loop.index0 }}" value="{{ u.name }}">
-      <input type="hidden" name="lkind_{{ loop.index0 }}" value="{{ u.kind }}">
     </label>
     {% endfor %}
   </div>
@@ -67,6 +77,7 @@
   <p class="empty">Nothing new in that file. <a href="/import">Try another.</a></p>
   {% endif %}
 </form>
+{% if more %}{{ next_batch(more) }}{% endif %}
 
 {% else %}
 <details class="form" open>

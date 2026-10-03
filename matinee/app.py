@@ -18,6 +18,7 @@ check Mise and Keep make, and the port is no longer published.
 """
 import hashlib
 import hmac
+import json
 import os
 import sys
 from datetime import date, datetime
@@ -420,12 +421,34 @@ async def add(request: Request):
 
 MAX_UPLOAD = 5 * 1024 * 1024   # a few years of viewing activity is well under 1 MB
 MAX_IMPORT = 1000
+# One form field per row (the row's data rides in the checkbox value), so a
+# confirm posts about as many fields as it has rows. Starlette refuses more
+# than 1000 by default, which is below what a long history legitimately sends.
+IMPORT_FIELDS = 2 * MAX_IMPORT + 50
+
+
+def _row(value):
+    """A ticked row's JSON back into a dict. The value came from a form, so
+    anything that is not an object is dropped rather than trusted."""
+    try:
+        row = json.loads(value)
+    except (TypeError, ValueError):
+        return {}
+    return row if isinstance(row, dict) else {}
+
+
+def _more(remaining, next_offset, profile):
+    """What the next-batch upload form needs, or None when the file is done."""
+    if not remaining:
+        return None
+    return {"offset": next_offset, "remaining": remaining, "profile": profile}
 
 
 def _import_page(request, who, **ctx):
     ctx.setdefault("preview", None)
     ctx.setdefault("done", None)
     ctx.setdefault("note", None)
+    ctx.setdefault("more", None)
     return page(request, "import.html", who=who, **ctx)
 
 
@@ -451,18 +474,21 @@ async def import_preview(request: Request):
     if not raw or len(raw) > MAX_UPLOAD:
         return _import_page(request, who, note="That file is empty or too large to be a viewing history.")
     profile = (form.get("profile") or "").strip()
+    offset = max(0, _int(form.get("offset")) or 0)
     try:
         titles, profiles = netflix.parse(raw.decode("utf-8-sig", errors="replace"),
                                          profile or None)
-        matched, unmatched, truncated = netflix.match(titles)
+        matched, unmatched, remaining = netflix.match(titles, offset=offset)
     except ValueError as exc:
         return _import_page(request, who, note=str(exc))
     have = store.reviewed_tmdb_ids(who["id"], [m["tmdb_id"] for m in matched])
     fresh = [m for m in matched if m["tmdb_id"] not in have]
     return _import_page(request, who, preview={
         "matched": fresh, "already": len(matched) - len(fresh), "unmatched": unmatched,
-        "truncated": truncated, "profiles": profiles if len(profiles) > 1 else None,
-        "profile": profile})
+        "batch": ((offset + 1, min(offset + netflix.MAX_TITLES, len(titles)), len(titles))
+                  if remaining or offset else None),
+        "profiles": profiles if len(profiles) > 1 else None, "profile": profile},
+        more=_more(remaining, offset + netflix.MAX_TITLES, profile))
 
 
 @app.post("/import/confirm", response_class=HTMLResponse)
@@ -474,32 +500,37 @@ async def import_confirm(request: Request):
     unticked by default: ticked, each becomes a local title with no TMDB id."""
     _check_origin(request)
     who = me(request)
-    form = await request.form()
+    form = await request.form(max_fields=IMPORT_FIELDS)
     added = local = 0
-    for i in form.getlist("pick")[:MAX_IMPORT]:
-        tmdb_id, name = _int(form.get("tmdb_id_" + i)), (form.get("name_" + i) or "").strip()
+    for value in form.getlist("pick")[:MAX_IMPORT]:
+        row = _row(value)
+        tmdb_id, name = _int(row.get("tmdb_id")), str(row.get("name") or "").strip()
         if not tmdb_id or not name:
             continue
         try:
-            seen_on = date.fromisoformat(form.get("last_" + i) or "")
+            seen_on = date.fromisoformat(str(row.get("last") or ""))
         except ValueError:
             seen_on = None
+        genres = row.get("genres") if isinstance(row.get("genres"), list) else []
         tid = store.upsert_title(
-            tmdb_id, "show" if form.get("kind_" + i) == "show" else "movie", name,
-            _int(form.get("year_" + i)),
-            [g for g in (form.get("genres_" + i) or "").split("/") if g],
-            None, form.get("overview_" + i) or None, None)
+            tmdb_id, "show" if row.get("kind") == "show" else "movie", name,
+            _int(row.get("year")), [str(g) for g in genres if g],
+            None, row.get("overview") or None, None)
         store.ensure_review(who["id"], tid, seen_on)
         added += 1
-    for j in form.getlist("local")[:MAX_IMPORT]:
-        name = (form.get("lname_" + j) or "").strip()
+    for value in form.getlist("local")[:MAX_IMPORT]:
+        row = _row(value)
+        name = str(row.get("name") or "").strip()
         if not name:
             continue
-        kind = "show" if form.get("lkind_" + j) == "show" else "movie"
+        kind = "show" if row.get("kind") == "show" else "movie"
         tid = store.title_by_name(name) or store.upsert_title(None, kind, name, None)
         store.ensure_review(who["id"], tid)
         local += 1
-    return _import_page(request, who, done={"added": added, "local": local})
+    return _import_page(request, who, done={"added": added, "local": local},
+                        more=_more(_int(form.get("remaining")) or 0,
+                                   max(0, _int(form.get("next_offset")) or 0),
+                                   (form.get("profile") or "").strip()))
 
 
 @app.post("/merge")
