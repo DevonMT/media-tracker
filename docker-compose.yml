@@ -24,7 +24,14 @@ services:
       BROKER_URL: http://172.30.0.1:8610
     env_file:
       - ./secrets/app.env    # PGUSER, PGPASSWORD, TMDB_API_TOKEN, GATEWAY_TOKEN
-    cap_drop: [NET_RAW]
+    # Non-root, no capabilities, a memory ceiling (PLATFORM-SPEC 1). The image
+    # holds only code and everything persistent is in Postgres, so there is no
+    # volume to chown. 1000 is the same uid the platform and Keep run as.
+    mem_limit: 384m
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     # Least privilege, per devondoes/SPEC-network.md. The networks are created
     # by devondoes/ops/networks.sh.
     networks:
