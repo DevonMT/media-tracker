@@ -472,6 +472,26 @@ def drop_suggestion(sid, user_id):
     return x("DELETE FROM suggestion WHERE id=%s AND requested_by=%s", (sid, user_id))
 
 
+def seed_titles(user_id, limit=5):
+    """The titles somebody rated highest that TMDB knows, to seed "more like
+    this" from. A local title (no TMDB id) cannot be looked up, so it is skipped."""
+    return q("""SELECT t.tmdb_id, t.kind, t.name, r.rating
+                  FROM review r JOIN title t ON t.id = r.title_id
+                 WHERE r.user_id=%s AND r.rating >= 4 AND t.tmdb_id IS NOT NULL
+                 ORDER BY r.rating DESC, r.updated_at DESC LIMIT %s""",
+             (user_id, limit))
+
+
+def seen_tmdb_ids(user_id):
+    """TMDB ids of what this person has reviewed or dismissed, which a name
+    match can miss when TMDB spells a title differently from the library."""
+    rows = q("""SELECT t.tmdb_id FROM title t WHERE t.tmdb_id IS NOT NULL
+                   AND (EXISTS (SELECT 1 FROM review r WHERE r.title_id=t.id AND r.user_id=%s)
+                     OR EXISTS (SELECT 1 FROM title_dismissed d WHERE d.title_id=t.id AND d.user_id=%s))""",
+             (user_id, user_id))
+    return {r["tmdb_id"] for r in rows}
+
+
 def taste_profile(user_id, limit=40):
     """What somebody likes, as the model needs to hear it.
 

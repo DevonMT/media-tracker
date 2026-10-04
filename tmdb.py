@@ -136,6 +136,46 @@ def get_watch_providers(tmdb_id: int, media_type: str, region: str = "US") -> di
     }
 
 
+def related(tmdb_id: int, media_type: str) -> list[dict]:
+    """What TMDB recommends alongside one title, or its "similar" list when it
+    has no recommendations. Plain TMDB data, no model. Each item carries its
+    full genre list and TMDB's vote figures; a failed call raises, so callers
+    can tell "nothing related" from "could not check"."""
+    endpoint = "movie" if media_type == "movie" else "tv"
+    genre_map = MOVIE_GENRES if endpoint == "movie" else TV_GENRES
+    items = []
+    for path in ("recommendations", "similar"):
+        resp = requests.get(
+            f"{BASE_URL}/{endpoint}/{tmdb_id}/{path}",
+            headers=_headers(),
+            params={"language": "en-US", "page": 1},
+            timeout=8,
+        )
+        if resp.status_code == 404:
+            continue
+        resp.raise_for_status()
+        items = resp.json().get("results", [])
+        if items:
+            break
+    out = []
+    for item in items:
+        if item.get("adult"):
+            continue
+        date = item.get("release_date") or item.get("first_air_date") or ""
+        overview = item.get("overview") or ""
+        out.append({
+            "tmdb_id": item["id"],
+            "name": item.get("title") or item.get("name") or "Unknown",
+            "kind": "movie" if endpoint == "movie" else "show",
+            "year": int(date[:4]) if date[:4].isdigit() else None,
+            "genres": [genre_map[g] for g in item.get("genre_ids", []) if g in genre_map],
+            "overview": overview[:180] + ("…" if len(overview) > 180 else ""),
+            "vote_average": item.get("vote_average") or 0,
+            "vote_count": item.get("vote_count") or 0,
+        })
+    return out
+
+
 def get_cast_by_title(title: str, year: int | None, media_type: str) -> list[str]:
     hits = search(title)
     match = None

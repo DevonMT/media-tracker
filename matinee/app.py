@@ -181,10 +181,13 @@ async def do_recommend(request: Request):
     rewatch = form.get("rewatch") == "on"
 
     if variant(request) != "full":
+        # No model call for anybody but the full version: TMDB's own "more
+        # like this" from what you rated highest. It is one person, so the
+        # picker's choices and the rewatch box do not apply.
+        out = blend.more_like_this(who["id"], tmdb)
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
-                    picks=[], chosen=chosen, parties=store.parties(who["id"]),
-                    saved=_kept(who["id"]),
-                    note="Recommendations are part of the full version of Matinee.")
+                    picks=out["picks"], chosen=[who["id"]], parties=[],
+                    saved=_kept(who["id"]), note=out["note"])
 
     try:
         out = blend.recommend(ai.ask_structured, who["id"], chosen,

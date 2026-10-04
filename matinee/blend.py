@@ -172,7 +172,10 @@ def availability(p, platforms, tmdb):
     can_rent = any(x.get("can_rent") for x in platforms)
     kind = "show" if p.get("kind") == "show" else "movie"
     try:
-        match = tmdb.find_match(p.get("name"), p.get("year"), kind)
+        # A pick that came from TMDB already has its id; only a model's pick
+        # needs the name lookup.
+        match = ({"tmdb_id": p["tmdb_id"], "type": kind} if p.get("tmdb_id")
+                 else tmdb.find_match(p.get("name"), p.get("year"), kind))
         if not match:
             return "missing", []
         prov = tmdb.get_watch_providers(match["tmdb_id"], match.get("type") or kind)
@@ -322,3 +325,66 @@ def recommend(ask_structured, viewer_id, audience_ids, want=6, allow_rewatch=Fal
         note = ("%s %s only a few titles rated, so their score is a guess more "
                 "than a read." % (" and ".join(thin), "has" if len(thin) == 1 else "have"))
     return {"picks": picks, "note": note, "people": people}
+
+
+# ── no-AI picks ─────────────────────────────────────────────────────────────
+# The Lite version of Recommend. Nothing here calls a model: TMDB's own
+# "recommendations" for the titles you rated highest, checked in code. Nobody
+# but Devon causes a Claude call, so this is the whole feature for everyone else.
+
+SEEDS = 5
+MIN_VOTES = 50  # below this TMDB's rating of a title says little
+CHECK_BATCH = 12  # providers are checked this many at a time, best first
+CHECK_CAP = 36
+
+
+def more_like_this(viewer_id, tmdb, want=5):
+    """Picks for ONE person from TMDB's related titles for what they rated
+    highest: not seen, dismissed or kept, within their vetoes, and on a service
+    they have. Returns {"picks": [...], "note": ...} like recommend()."""
+    seeds = store.seed_titles(viewer_id, SEEDS)
+    if not seeds:
+        return {"picks": [], "note": "Rate a few titles you liked (4 or 5) and Matinee can "
+                                     "find more like them."}
+
+    def fetch(seed):
+        try:
+            return seed, tmdb.related(seed["tmdb_id"], seed["kind"]), None
+        except Exception as exc:  # noqa: BLE001
+            return seed, [], exc
+
+    with ThreadPoolExecutor(max_workers=SEEDS) as pool:
+        fetched = list(pool.map(fetch, seeds))
+    if all(err for _, _, err in fetched):
+        return {"picks": [], "note": "Could not reach TMDB just now. Try again in a minute."}
+
+    cand = {}
+    for seed, items, _ in fetched:
+        for pos, it in enumerate(items):
+            if it.get("vote_count", 0) < MIN_VOTES:
+                continue
+            c = cand.setdefault(it["tmdb_id"], dict(it, score=0.0, because={}))
+            # A title that turns up under several of your favourites, and high
+            # in each list, is the better bet; your rating weights the seed.
+            c["score"] += seed["rating"] / (1 + pos / 5)
+            c["because"][seed["name"]] = seed["rating"]
+
+    names = list(store.seen_by([viewer_id])) + [s["name"] for s in store.saved(viewer_id)]
+    ids = store.seen_tmdb_ids(viewer_id) | {s["tmdb_id"] for s in seeds}
+    ranked = [c for c in cand.values() if c["tmdb_id"] not in ids]
+    ranked = drop_seen(ranked, names)
+    ranked = filter_vetoes(ranked, store.rules_for([viewer_id]))
+    ranked.sort(key=lambda c: (-c["score"], -c["vote_average"]))
+
+    plats = store.platforms(active_only=True)
+    picks = []
+    for i in range(0, min(len(ranked), CHECK_CAP), CHECK_BATCH):
+        for p in where_to_watch(ranked[i:i + CHECK_BATCH], plats, tmdb):
+            liked = sorted(p["because"], key=lambda n: -p["because"][n])[:2]
+            picks.append(dict(p, reason="Because you liked " + " and ".join(liked) + "."))
+        if len(picks) >= want:
+            break
+    picks = picks[:want]
+    return {"picks": picks,
+            "note": None if picks else "Nothing new turned up on your services. "
+                                       "Rate a few more titles and try again."}

@@ -8,6 +8,9 @@
     are the same feature with a different number of people ticked, which is
     why there is one form and not two modes. #}
 <form method="post" action="/recommend" class="picker">
+  {#  Lite is one person and no model: TMDB's picks from what you rated
+      highest. The group controls would promise a blend it does not do. #}
+  {% if variant == 'full' %}
   <h1>Recommend for</h1>
   <div class="chips">
     {% for p in circle %}
@@ -40,14 +43,18 @@
   </div>
   {% endif %}
 
+  {% else %}
+  <h1>More like what you liked</h1>
+  {% endif %}
+
   <div class="row">
-    <label class="inline"><input type="checkbox" name="rewatch" {% if rewatch %}checked{% endif %}> Allow things somebody has already seen</label>
+    {% if variant == 'full' %}<label class="inline"><input type="checkbox" name="rewatch" {% if rewatch %}checked{% endif %}> Allow things somebody has already seen</label>{% endif %}
     <button type="submit" class="find"><span class="spin" aria-hidden="true"></span><span class="find-label">Find something</span></button>
   </div>
   {#  A model call takes tens of seconds, and a button that does nothing
       visible for that long reads as broken, so the second tap goes in. #}
-  <p class="working" role="status" hidden>Asking the recommender. This can take a
-    minute<span class="elapsed"></span>.</p>
+  <p class="working" role="status" hidden>{% if variant == 'full' %}Asking the recommender. This can take a
+    minute{% else %}Checking what is on your services. This can take a few seconds{% endif %}<span class="elapsed"></span>.</p>
 </form>
 
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
@@ -72,6 +79,7 @@
     {#  The floor, named. "weakest fit: Gran, 62" is the number that decides
         whether you put it on — an average would be the one figure that does
         not answer the question. #}
+    {% if p.scores %}
     <div class="scores">
       <span class="floor" title="The lowest score in the group">
         weakest fit: {{ labels.get(p.floor_user, 'someone') }} · {{ p.floor }}
@@ -82,6 +90,7 @@
         {% endif %}
       {% endfor %}
     </div>
+    {% endif %}
 
     {#  Three ways a pick leaves the list: keep it for later, say what you
         thought of it if you have already seen it, or turn it down. Good or
@@ -92,8 +101,10 @@
           <input type="hidden" name="{{ f }}" value="{{ p.get(f) or '' }}">
         {% endfor %}
         <input type="hidden" name="platform" value="{{ (p.where | join(', ')) if p.where else (p.get('platform') or '') }}">
+        {% if p.scores %}
         <input type="hidden" name="floor" value="{{ p.floor }}">
         <input type="hidden" name="floor_user" value="{{ p.floor_user }}">
+        {% endif %}
         {% for uid in p.scores %}<input type="hidden" name="audience" value="{{ uid }}">{% endfor %}
         <button class="mini" type="submit">Keep</button>
       </form>
