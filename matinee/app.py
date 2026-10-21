@@ -29,6 +29,7 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -185,7 +186,7 @@ async def do_recommend(request: Request):
         # No model call for anybody but the full version: TMDB's own "more
         # like this" from what you rated highest. It is one person, so the
         # picker's choices and the rewatch box do not apply.
-        out = blend.more_like_this(who["id"], tmdb)
+        out = await run_in_threadpool(blend.more_like_this, who["id"], tmdb)
         return page(request, "recommend.html", who=who, circle=store.circle(who["id"]),
                     picks=out["picks"], chosen=[who["id"]], parties=[],
                     saved=_kept(who["id"]), note=out["note"])
@@ -197,8 +198,11 @@ async def do_recommend(request: Request):
                             user=request.headers.get("x-platform-user"),
                             assertion=request.headers.get("x-platform-assertion"))
     try:
-        out = blend.recommend(ask, who["id"], chosen,
-                              allow_rewatch=rewatch, tmdb=tmdb)
+        # In a worker thread, not on the event loop: this waits on the model
+        # for up to four minutes, and on the loop it froze every page for
+        # everybody else until it answered.
+        out = await run_in_threadpool(blend.recommend, ask, who["id"], chosen,
+                                      allow_rewatch=rewatch, tmdb=tmdb)
     except ai.BrokerError as exc:
         # Degrade, never crash: the library and the reviews are still there.
         # The full reason goes to the container log; the page gets a sentence,
@@ -488,7 +492,8 @@ async def import_preview(request: Request):
     try:
         titles, profiles = netflix.parse(raw.decode("utf-8-sig", errors="replace"),
                                          profile or None)
-        matched, unmatched, remaining = netflix.match(titles, offset=offset)
+        # TMDB lookups for a whole batch: off the event loop, like recommend.
+        matched, unmatched, remaining = await run_in_threadpool(netflix.match, titles, offset=offset)
     except ValueError as exc:
         return _import_page(request, who, note=str(exc))
     have = store.reviewed_tmdb_ids(who["id"], [m["tmdb_id"] for m in matched])

@@ -296,10 +296,16 @@ def recommend(ask_structured, viewer_id, audience_ids, want=6, allow_rewatch=Fal
             # Not in your circle: they never shared with you, so their taste is
             # not yours to count. Silently skipping would be worse than saying so.
             return {"picks": [], "note": "Somebody in that list has not shared their taste with you."}
+        profile = store.taste_profile(uid)
+        if uid != viewer_id:
+            # Sharing taste shares ratings, not the private notes under them.
+            # A note sent to the model can come back word for word in a pick's
+            # `reason`, on the screen of whoever asked.
+            profile = [dict(r, notes=None) for r in profile]
         people.append({
             "id": uid,
             "label": who.get("name") or who.get("email") or "Someone",
-            "profile": store.taste_profile(uid),
+            "profile": profile,
         })
 
     rules = store.rules_for(audience_ids)

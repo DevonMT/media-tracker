@@ -187,6 +187,32 @@ class LiteRoute(unittest.TestCase):
         self.assertNotIn('type="checkbox" name="who"', r.text)
 
 
+class BlendKeepsOtherPeoplesNotesPrivate(unittest.TestCase):
+    """Sharing taste shares ratings. Another person's private review notes
+    must never reach the model, where they could be quoted back in a pick's
+    reason on the asker's screen. The asker's own notes still help."""
+
+    def test_only_the_askers_notes_reach_the_prompt(self):
+        self.addCleanup(mock.patch.stopall)
+        st = mock.patch.object(blend, "store").start()
+        st.circle.return_value = [{"id": "me", "name": "Me"}, {"id": "pal", "name": "Pal"}]
+        st.taste_profile.side_effect = lambda uid: [{
+            "name": "Arrival", "year": 2016, "kind": "movie", "genres": ["Drama"],
+            "rating": 5, "notes": "MY-NOTE" if uid == "me" else "PALS-PRIVATE-NOTE"}]
+        st.rules_for.return_value = []
+        st.seen_by.return_value = set()
+        st.platforms.return_value = []
+        st.saved.return_value = []
+        prompts = []
+
+        def ask(prompt, schema):
+            prompts.append(prompt)
+            return {"picks": []}
+        blend.recommend(ask, "me", ["me", "pal"])
+        self.assertIn("MY-NOTE", prompts[0])
+        self.assertNotIn("PALS-PRIVATE-NOTE", prompts[0])
+
+
 class FullRouteNamesTheCaller(unittest.TestCase):
     """The broker runs Matinee in split mode: it refuses a call with no `user`,
     and puts only Devon (proved by the assertion) on his Max plan. So a Full
