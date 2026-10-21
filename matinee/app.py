@@ -16,6 +16,7 @@ anybody: read their library, write their reviews, share their taste. So the
 gateway now proves each request came through it with X-Gateway-Token, the same
 check Mise and Keep make, and the port is no longer published.
 """
+import functools
 import hashlib
 import hmac
 import json
@@ -189,8 +190,14 @@ async def do_recommend(request: Request):
                     picks=out["picks"], chosen=[who["id"]], parties=[],
                     saved=_kept(who["id"]), note=out["note"])
 
+    # Who is asking, for the broker: it bills a friend's call to the metered
+    # key under their own cap, and only Devon's (proved by the assertion) to
+    # his Max plan.
+    ask = functools.partial(ai.ask_structured,
+                            user=request.headers.get("x-platform-user"),
+                            assertion=request.headers.get("x-platform-assertion"))
     try:
-        out = blend.recommend(ai.ask_structured, who["id"], chosen,
+        out = blend.recommend(ask, who["id"], chosen,
                               allow_rewatch=rewatch, tmdb=tmdb)
     except ai.BrokerError as exc:
         # Degrade, never crash: the library and the reviews are still there.

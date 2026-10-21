@@ -73,22 +73,28 @@ class BrokerError(RuntimeError):
         return "The recommender couldn't come up with picks this time. Try again in a minute."
 
 
-def ask_structured(prompt: str, schema: dict, max_tokens: int = 4096) -> dict:
+def ask_structured(prompt: str, schema: dict, max_tokens: int = 4096,
+                   user: str | None = None, assertion: str | None = None) -> dict:
     """Ask Claude for an answer shaped by `schema`, and return it parsed.
 
     The broker guarantees the result is valid JSON matching the requested
     shape, or it raises — so callers never parse prose and never see a
     half-finished tool call.
+
+    `user` and `assertion` are the gateway's X-Platform-User and
+    X-Platform-Assertion, passed through untouched. The broker runs Matinee in
+    split mode: Devon on his Max plan (proved by the assertion), everyone else
+    on the metered key under their own cap. Without `user` it refuses the call.
     """
+    body = {"app_id": APP_ID, "prompt": prompt, "schema": schema, "max_tokens": max_tokens}
+    if user:
+        body["user"] = user
+    if assertion:
+        body["assertion"] = assertion
     try:
         resp = requests.post(
             f"{BROKER_URL}/v1/ask",
-            json={
-                "app_id": APP_ID,
-                "prompt": prompt,
-                "schema": schema,
-                "max_tokens": max_tokens,
-            },
+            json=body,
             timeout=TIMEOUT_S,
         )
     except requests.Timeout as exc:

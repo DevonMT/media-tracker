@@ -187,5 +187,36 @@ class LiteRoute(unittest.TestCase):
         self.assertNotIn('type="checkbox" name="who"', r.text)
 
 
+class FullRouteNamesTheCaller(unittest.TestCase):
+    """The broker runs Matinee in split mode: it refuses a call with no `user`,
+    and puts only Devon (proved by the assertion) on his Max plan. So a Full
+    POST must hand both gateway headers to the broker, unchanged."""
+
+    def test_user_and_assertion_reach_the_broker(self):
+        from fastapi.testclient import TestClient
+        from matinee import app
+        self.addCleanup(mock.patch.stopall)
+        st = mock.patch.object(app, "store").start()
+        st.person_by_email.return_value = {"id": "u2", "email": "friend@x", "name": "F"}
+        st.circle.return_value = []
+        st.saved.return_value = []
+        st.parties.return_value = []
+
+        def fake_recommend(ask, *a, **k):
+            ask("prompt", {"type": "object"})
+            return {"picks": [], "note": ""}
+        mock.patch.object(app.blend, "recommend", side_effect=fake_recommend).start()
+        post = mock.patch.object(app.ai.requests, "post").start()
+        post.return_value.status_code = 200
+        post.return_value.json.return_value = {"data": {"picks": []}, "text": ""}
+        TestClient(app.app).post("/recommend", data={"who": ["u2"]}, headers={
+            "x-platform-user": "friend@x", "x-platform-variant": "full",
+            "x-platform-assertion": "signed-token", "origin": "http://testserver"})
+        sent = post.call_args.kwargs["json"]
+        self.assertEqual(sent["user"], "friend@x")
+        self.assertEqual(sent["assertion"], "signed-token")
+        self.assertEqual(sent["app_id"], "matinee")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
