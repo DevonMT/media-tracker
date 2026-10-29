@@ -102,6 +102,14 @@ class ScoreShape(unittest.TestCase):
         ], {"devon", "gran"})
         self.assertEqual(out, [])
 
+    def test_a_non_list_or_duplicate_id_is_handled(self):
+        ids = {"devon", "gran"}
+        self.assertEqual(blend.rank([{"name": "X", "scores": 70}], ids), [])
+        out = blend.rank([{"name": "X", "scores": [
+            {"id": "devon", "score": 80}, {"id": "devon", "score": 10},
+            {"id": "gran", "score": 60}]}], ids)
+        self.assertEqual(out[0]["scores"], {"devon": 80, "gran": 60})
+
     def test_recommend_end_to_end_with_list_scores(self):
         from unittest import mock
         with mock.patch.object(blend, "store") as st:

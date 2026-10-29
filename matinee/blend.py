@@ -134,7 +134,9 @@ def _score_map(raw):
     if isinstance(raw, dict):
         return raw
     out = {}
-    for item in raw or []:
+    if not isinstance(raw, list):
+        return out
+    for item in raw:
         if isinstance(item, dict) and isinstance(item.get("id"), str):
             out.setdefault(item["id"], item.get("score"))
     return out
