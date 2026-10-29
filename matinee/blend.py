@@ -40,10 +40,22 @@ SCHEMA = {
                     "overview": {"type": "string"},
                     "reason": {"type": "string"},
                     "platform": {"type": "string"},
-                    # One number per person, keyed by the id we sent. Asking for
-                    # a single score would make the model do the averaging, and
-                    # the whole point is that we do not average.
-                    "scores": {"type": "object"},
+                    # One number per person, tagged with the id we sent. Asking
+                    # for a single score would make the model do the averaging,
+                    # and the whole point is that we do not average. A list and
+                    # not an object keyed by id: the native output path refuses
+                    # a free-form object, and the ids are not known in advance.
+                    "scores": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "score": {"type": "integer"},
+                            },
+                            "required": ["id", "score"],
+                        },
+                    },
                 },
                 "required": ["name", "kind", "reason", "scores"],
             },
@@ -102,8 +114,8 @@ def build_prompt(people, rules, seen, platforms, want, allow_rewatch):
         "Recommend %d things to watch for this group: %s.\n\n"
         "%s\n"
         "%s%s%s\n\n"
-        "SCORE EVERY PICK FOR EVERY PERSON SEPARATELY, 0-100, in `scores`, keyed "
-        "by the id given above. Do not average them and do not return a single "
+        "SCORE EVERY PICK FOR EVERY PERSON SEPARATELY, 0-100, in `scores`, as "
+        "one {id, score} entry per person using the id given above. Do not average them and do not return a single "
         "score: a film the whole group likes at 70 is better than one two people "
         "love at 95 and one person endures at 30, and only per-person numbers can "
         "express that.\n"
@@ -112,6 +124,20 @@ def build_prompt(people, rules, seen, platforms, want, allow_rewatch):
         "`reason` should say why it suits the group in one sentence, naming the "
         "tension if there is one."
         % (want, who, blocks, veto_text, avail, seen_text))
+
+
+def _score_map(raw):
+    """The model's `scores` as {id: number}.
+
+    The schema asks for a list of {id, score}; a plain {id: number} object is
+    accepted too, since that is what rank() hands on and what is stored."""
+    if isinstance(raw, dict):
+        return raw
+    out = {}
+    for item in raw or []:
+        if isinstance(item, dict) and isinstance(item.get("id"), str):
+            out.setdefault(item["id"], item.get("score"))
+    return out
 
 
 def rank(picks, ids):
@@ -123,8 +149,9 @@ def rank(picks, ids):
     """
     out = []
     for p in picks:
-        scores = {k: v for k, v in (p.get("scores") or {}).items()
-                  if k in ids and isinstance(v, (int, float))}
+        scores = {k: v for k, v in _score_map(p.get("scores")).items()
+                  if k in ids and isinstance(v, (int, float))
+                  and not isinstance(v, bool)}
         if len(scores) != len(ids):
             continue
         floor_id = min(scores, key=lambda k: scores[k])

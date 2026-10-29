@@ -62,6 +62,67 @@ class Ranking(unittest.TestCase):
         self.assertEqual(out[0]["floor_user"], "devon")
 
 
+class ScoreShape(unittest.TestCase):
+    """The native output path refuses a free-form object, so scores are a list
+    of {id, score}. rank() turns that back into the {id: number} the rest of
+    the app stores and draws."""
+
+    def test_schema_asks_for_a_list_of_id_and_score(self):
+        scores = blend.SCHEMA["properties"]["picks"]["items"]["properties"]["scores"]
+        self.assertEqual(scores["type"], "array")
+        self.assertEqual(scores["items"]["required"], ["id", "score"])
+        self.assertEqual(set(scores["items"]["properties"]), {"id", "score"})
+
+    def test_schema_has_no_free_form_object(self):
+        def walk(node):
+            if isinstance(node, dict):
+                if node.get("type") == "object":
+                    self.assertIn("properties", node)
+                for v in node.values():
+                    walk(v)
+            elif isinstance(node, list):
+                for v in node:
+                    walk(v)
+        walk(blend.SCHEMA)
+
+    def test_list_scores_rank_like_the_old_dict(self):
+        out = blend.rank([
+            {"name": "Loved by one", "scores": [{"id": "devon", "score": 95}, {"id": "gran", "score": 30}]},
+            {"name": "Fine for both", "scores": [{"id": "devon", "score": 70}, {"id": "gran", "score": 70}]},
+        ], {"devon", "gran"})
+        self.assertEqual([p["name"] for p in out], ["Fine for both", "Loved by one"])
+        self.assertEqual(out[1]["scores"], {"devon": 95, "gran": 30})
+        self.assertEqual((out[1]["floor"], out[1]["floor_user"]), (30, "gran"))
+
+    def test_list_with_a_missing_or_bad_entry_drops_the_pick(self):
+        out = blend.rank([
+            {"name": "Half", "scores": [{"id": "devon", "score": 90}]},
+            {"name": "Junk", "scores": [{"id": "devon", "score": 90}, {"id": "gran", "score": "high"}, "x"]},
+            {"name": "None", "scores": None},
+        ], {"devon", "gran"})
+        self.assertEqual(out, [])
+
+    def test_recommend_end_to_end_with_list_scores(self):
+        from unittest import mock
+        with mock.patch.object(blend, "store") as st:
+            st.circle.return_value = [{"id": "devon", "name": "Devon"}, {"id": "gran", "name": "Gran"}]
+            st.taste_profile.return_value = []
+            st.rules_for.return_value = []
+            st.seen_by.return_value = set()
+            st.platforms.return_value = []
+            st.saved.return_value = []
+            asked = []
+
+            def ask(prompt, schema):
+                asked.append(schema)
+                return {"picks": [{"name": "Arrival", "kind": "movie", "reason": "r",
+                                   "scores": [{"id": "devon", "score": 80}, {"id": "gran", "score": 66}]}]}
+            out = blend.recommend(ask, "devon", ["devon", "gran"])
+        self.assertIs(asked[0], blend.SCHEMA)
+        self.assertEqual(out["picks"][0]["floor"], 66)
+        self.assertEqual(out["picks"][0]["floor_user"], "gran")
+
+
 class Vetoes(unittest.TestCase):
     def test_a_veto_removes_rather_than_lowers(self):
         """Gran not liking horror is 'no horror', however much Devon would
