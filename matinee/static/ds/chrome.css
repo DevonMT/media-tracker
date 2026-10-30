@@ -135,3 +135,537 @@
     display: none;
   }
 }
+
+/*
+ * ===================================================================
+ * MARKUP CONTRACT v2 (SPEC-estate-shell.md, #559): one quiet bar.
+ *
+ *   <header class="ds-bar" data-app="keep">
+ *     <a class="ds-mark" href="https://devondoes.dev/"><img src="/emblems/hub.svg" alt=""><span>devondoes</span></a>
+ *     <span class="ds-sep" aria-hidden="true">/</span>
+ *     <button class="ds-switch" type="button" aria-haspopup="menu" aria-expanded="false">
+ *       <img src="/emblems/keep.svg" alt=""><span>Keep</span></button>
+ *     <span class="ds-fill"></span>
+ *     <nav class="ds-nav" aria-label="Site">
+ *       <a class="ds-people" href="https://devondoes.dev/people" aria-label="People"></a>
+ *       <button class="ds-me" type="button" aria-haspopup="menu" aria-label="Account"></button>
+ *     </nav>
+ *     <button class="ds-theme" type="button" aria-haspopup="menu" aria-label="Theme" hidden></button>
+ *   </header>
+ *
+ * .ds-theme is in EVERY v2 bar (it is the theme control whenever there is no
+ * avatar menu), so it is what marks a bar as v2 below. Everything v2 is scoped
+ * to `.ds-bar:has(> .ds-theme)`: an app still on the six-element contract that
+ * does not load chrome.js (Mise, Keep until they adopt) keeps the rules above,
+ * pixel for pixel, and chrome.js upgrades the ones that do load it.
+ *
+ * No data-app means the hub: no accent line, and the wordmark stays on a phone.
+ * The icons (people, chevron, theme) are CSS masks so a server-rendered bar and
+ * chrome.js never carry two copies of the same SVG.
+ * ===================================================================
+ */
+
+.ds-bar:has(> .ds-theme) {
+  position: sticky;
+  top: 0;
+  gap: 6px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0 20px;
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  letter-spacing: normal;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+/* An app that had the six-element bar sat it in normal flow (Ledger's own
+   sticky nav is at top:0 under it). Upgraded in place, it stays in flow. */
+.ds-bar[data-upgraded]:has(> .ds-theme) {
+  position: relative;
+}
+
+/* The shared tie between apps: a 2px accent line. The hub has none; its
+   hexes carry the colour there. */
+.ds-bar[data-app]:has(> .ds-theme)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.ds-bar:has(> .ds-theme) .ds-mark {
+  gap: 9px;
+  min-height: 40px;
+  padding: 0 4px;
+  border-radius: 10px;
+  color: var(--ink);
+  font: 700 17px/1 'Bricolage Grotesque', var(--font-body);
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+}
+
+.ds-bar:has(> .ds-theme) .ds-mark::before {
+  content: none;
+}
+
+.ds-bar:has(> .ds-theme) .ds-mark img {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.ds-bar:has(> .ds-theme) .ds-sep {
+  margin: 0 2px 0 4px;
+  font-size: 18px;
+}
+
+/* The place, and the switcher when there is a menu behind it. Without one
+   (signed out, offline) chrome.js swaps the button for a <span> of the same
+   class: a button that opens nothing is a broken button. */
+.ds-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: 700 17px/1 var(--font-display, var(--font-body));
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-switch img {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.ds-switch span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.ds-switch::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  background: var(--muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+span.ds-switch {
+  cursor: default;
+}
+
+/* On the hub the place is "Home", in the UI face rather than a display one. */
+.ds-switch.ds-home {
+  font: 500 16px/1 var(--font-body);
+  color: var(--muted);
+}
+
+.ds-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.ds-bar .ds-nav[hidden],
+.ds-bar .ds-theme[hidden] {
+  display: none;
+}
+
+.ds-people,
+.ds-me,
+.ds-theme {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.ds-people:hover,
+.ds-theme:hover,
+.ds-me:hover,
+.ds-bar button.ds-switch:hover,
+.ds-bar button.ds-switch[aria-expanded='true'],
+.ds-me[aria-expanded='true'],
+.ds-theme[aria-expanded='true'] {
+  background: var(--press);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.ds-people::before,
+.ds-theme::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: var(--ds-icon) center / contain no-repeat;
+  mask: var(--ds-icon) center / contain no-repeat;
+}
+
+.ds-people {
+  --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3.4'/%3E%3Cpath d='M2.8 19.5c.6-3.4 3.2-5.3 6.2-5.3s5.6 1.9 6.2 5.3'/%3E%3Cpath d='M15.5 4.9a3.3 3.3 0 0 1 0 6.3M17.6 14.6c1.9.7 3.2 2.4 3.6 4.9'/%3E%3C/svg%3E");
+}
+
+/* The theme button shows the stored preference; chrome.js sets data-pref. */
+.ds-theme {
+  --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linejoin='round'%3E%3Crect x='3' y='4.5' width='18' height='12' rx='2'/%3E%3Cpath d='M8.5 20h7M12 16.5V20'/%3E%3C/svg%3E");
+}
+
+.ds-theme[data-pref='light'] {
+  --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4'/%3E%3C/svg%3E");
+}
+
+.ds-theme[data-pref='dark'] {
+  --ds-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linejoin='round'%3E%3Cpath d='M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z'/%3E%3C/svg%3E");
+}
+
+/* White digits would fail on the dark theme's light --danger; --bg is the
+   ground of the same theme, so it reads on --danger in both (scored in
+   check-contrast.py). */
+.ds-badge {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--danger);
+  color: var(--bg);
+  font: 600 10.5px/17px var(--font-body);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.ds-people .ds-badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+}
+
+/* The avatar is the platform's hexagon, which brings its own edge: never
+   clip it round (see platform/src/avatar.ts). Until it arrives the button
+   holds a quiet hexagon, so the bar does not jump. */
+.ds-me img {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.ds-me:empty::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  background: var(--seg);
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+}
+
+.ds-signin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  font: 500 14px/1 var(--font-body);
+  text-decoration: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.ds-signin:hover {
+  border-color: var(--control-rim);
+  background: var(--press);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.ds-bar:has(> .ds-theme) :is(.ds-mark, .ds-switch, .ds-people, .ds-me, .ds-theme, .ds-signin):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The first thing Tab reaches on every page; out of sight until then. */
+.ds-skip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 70;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 14px/1.2 var(--font-body);
+  box-shadow: var(--shadow-dialog);
+  transform: translateY(-200%);
+}
+
+.ds-skip:focus {
+  transform: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Menus: built by chrome.js, children of the bar -------------------- */
+
+.ds-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  z-index: 60;
+  min-width: 260px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-dialog);
+  color: var(--ink);
+  font: 400 14.5px/1.3 var(--font-body);
+  letter-spacing: normal;
+  text-align: left;
+  animation: ds-menu-in 120ms ease-out;
+}
+
+.ds-menu[hidden] {
+  display: none;
+}
+
+@keyframes ds-menu-in {
+  from {
+    opacity: 0;
+  }
+}
+
+[data-motion='off'] .ds-menu {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-menu {
+    animation: none;
+  }
+}
+
+.ds-menu-end {
+  right: 16px;
+}
+
+.ds-mi {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.ds-mi:hover,
+.ds-mi:focus-visible,
+.ds-mi[aria-current='page'] {
+  background: var(--press);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.ds-mi:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ds-mi img {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.ds-mi-gap {
+  width: 22px;
+  flex: 0 0 auto;
+}
+
+.ds-mi > svg {
+  width: 20px;
+  height: 20px;
+  margin: 0 1px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.ds-mi .ds-badge,
+.ds-mi .ds-check {
+  margin-left: auto;
+}
+
+.ds-check {
+  display: grid;
+  color: var(--accent);
+}
+
+.ds-check svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ds-msep {
+  margin: 6px 2px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.ds-mlabel {
+  margin: 6px 10px 2px;
+  color: var(--muted);
+  font: 600 11px/1.4 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ds-mhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 8px 10px;
+}
+
+.ds-mhead img {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+}
+
+.ds-mhead span {
+  min-width: 0;
+}
+
+.ds-mhead b {
+  display: block;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-mhead small {
+  display: block;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ds-mrow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.ds-mrow > span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ds-seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--seg);
+}
+
+.ds-seg button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 13px/1 var(--font-body);
+  cursor: pointer;
+}
+
+.ds-seg button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.ds-seg button[aria-checked='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--ink) 18%, transparent);
+}
+
+.ds-seg button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/*
+ * Phone: one row, the same 56px. Inside an app the wordmark goes and the
+ * emblem stays; on the hub the wordmark stays and the place goes (the page
+ * itself lists the apps).
+ */
+@media (max-width: 640px) {
+  .ds-bar:has(> .ds-theme) {
+    gap: 2px;
+    padding: 0 10px 0 14px;
+  }
+
+  .ds-bar[data-app]:has(> .ds-theme) .ds-mark span {
+    display: none;
+  }
+
+  .ds-bar:has(> .ds-theme) .ds-switch {
+    padding: 0 6px;
+  }
+
+  .ds-bar:not([data-app]) :is(.ds-switch.ds-home, .ds-sep) {
+    display: none;
+  }
+
+  .ds-menu-end {
+    right: 8px;
+  }
+}
