@@ -122,7 +122,6 @@
   var ICON = {
     home: SVG('0 0 24 24', 1.8, '<path d="M3.5 10.5 12 3.8l8.5 6.7V20a.9.9 0 0 1-.9.9h-4.8v-6h-5.6v6H4.4a.9.9 0 0 1-.9-.9z"/>'),
     people: SVG('0 0 24 24', 1.8, '<circle cx="9" cy="8" r="3.4"/><path d="M2.8 19.5c.6-3.4 3.2-5.3 6.2-5.3s5.6 1.9 6.2 5.3"/><path d="M15.5 4.9a3.3 3.3 0 0 1 0 6.3M17.6 14.6c1.9.7 3.2 2.4 3.6 4.9"/>'),
-    messages: SVG('0 0 24 24', 1.8, '<path d="M4.5 4.5h15a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H10l-4.5 3.8V16.5h-1a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/>'),
     light: SVG('0 0 24 24', 1.9, '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'),
     dark: SVG('0 0 24 24', 1.9, '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
     system: SVG('0 0 24 24', 1.9, '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>'),
@@ -159,6 +158,9 @@
   var me = null;         // the /api/me answer, once signed in
   var unread = 0;
   var hubUrl = function (p) { return hub + p; };
+  /* Straight to a tab, the inbox when something is unread. Never bare /people:
+     browsers cached an old /people -> /friends 301, and a tab URL skips it. */
+  var peopleUrl = function () { return hubUrl(unread > 0 ? '/people?tab=messages' : '/people?tab=friends'); };
   var q = function (sel) { return bar.querySelector(sel); };
 
   /** Only http(s) or a path on the hub; anything else (javascript:) is not a link. */
@@ -204,7 +206,7 @@
       var nav = el('nav', 'ds-nav');
       nav.setAttribute('aria-label', 'Site');
       var ppl = el('a', 'ds-people');
-      ppl.href = hubUrl('/people');
+      ppl.href = peopleUrl();
       ppl.setAttribute('aria-label', 'People');
       var av = el('button', 'ds-me');
       av.type = 'button';
@@ -411,7 +413,7 @@
     home.innerHTML = ICON.home;
     home.appendChild(el('span', null, 'Home'));
     if (!bar.dataset.app && location.pathname === '/') home.setAttribute('aria-current', 'page');
-    var ppl = item('a', null, hubUrl('/people'));
+    var ppl = item('a', null, peopleUrl());
     ppl.innerHTML = ICON.people;
     ppl.appendChild(el('span', null, 'People'));
     ppl.classList.add('ds-mi-people');
@@ -421,11 +423,6 @@
     }
     m.appendChild(home);
     m.appendChild(ppl);
-    // Until /people holds the inbox as a tab (#560), the inbox needs its own way in.
-    var msgs = item('a', null, hubUrl('/messages'));
-    msgs.innerHTML = ICON.messages;
-    msgs.appendChild(el('span', null, 'Messages'));
-    m.appendChild(msgs);
     if (!me) return m;
 
     // The server decides who sees what (apps[].group, from appsFor). This only
@@ -524,6 +521,7 @@
       if (b) b.remove();
       if (unread > 0) ppl.appendChild(badge(unread));
       ppl.setAttribute('aria-label', unread > 0 ? 'People, ' + unread + ' unread' : 'People');
+      ppl.href = peopleUrl();
     }
     if (open) {
       var mp = open.menu.querySelector('.ds-mi-people');
@@ -531,6 +529,7 @@
         var ob = mp.querySelector('.ds-badge');
         if (ob) ob.remove();
         if (unread > 0) mp.appendChild(badge(unread));
+        mp.href = peopleUrl();
         if (unread > 0) mp.setAttribute('aria-label', 'People, ' + unread + ' unread');
         else mp.removeAttribute('aria-label');
       }
@@ -560,7 +559,7 @@
       if (nav) {
         nav.hidden = false;
         var ppl = q('.ds-people');
-        if (ppl && !ppl.getAttribute('href')) ppl.href = hubUrl('/people');
+        if (ppl && !ppl.getAttribute('href')) ppl.href = peopleUrl();
         var av = q('.ds-me');
         if (av) {
           av.textContent = '';
