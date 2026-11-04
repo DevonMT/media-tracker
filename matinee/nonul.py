@@ -40,11 +40,11 @@ def _text_has_nul(text: str) -> bool:
     return "\x00" in text or bool(_JSON_NUL.search(text))
 
 
-def _bytes_have_nul(raw: bytes) -> bool:
+def _bytes_have_nul(raw: bytes, percent_encoded: bool = True) -> bool:
     if b"\x00" in raw:
         return True
     text = raw.decode("utf-8", errors="replace")
-    return _text_has_nul(text) or _text_has_nul(unquote_plus(text))
+    return _text_has_nul(text) or (percent_encoded and _text_has_nul(unquote_plus(text)))
 
 
 def _json_bad(node, depth=0) -> bool:
