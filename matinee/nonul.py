@@ -78,7 +78,7 @@ def _multipart_bad(body: bytes, content_type: str):
             return True
         if b"filename=" in head.lower():
             continue
-        if _bytes_have_nul(data):
+        if _bytes_have_nul(data, percent_encoded=False):   # nothing decodes %00 here
             return True
     return False
 

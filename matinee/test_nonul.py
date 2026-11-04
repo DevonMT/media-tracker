@@ -88,6 +88,10 @@ class RefuseNul(unittest.TestCase):
                       files={"file": ("v.csv", CSV, "text/csv")})
         self.assertEqual(r.status_code, 400)
 
+    def test_a_literal_percent_00_in_a_multipart_field_is_just_text(self):
+        r = self.post("/import", data={"profile": "%00"}, files={"file": ("v.csv", CSV, "text/csv")})
+        self.assertNotEqual(r.status_code, 400)
+
     def test_a_nul_in_an_uploaded_file_is_the_importers_business(self):
         with mock.patch.object(appmod.netflix.tmdb, "find_match", return_value=None):
             r = self.post("/import", files={"file": ("v.csv", "x,y\n1,2\n".encode("utf-16"), "text/csv")})
