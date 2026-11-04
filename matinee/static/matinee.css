@@ -41,8 +41,8 @@ main { width: min(1080px, 100%); margin: 0 auto; padding: 22px 20px 64px; }
    the old face to carry the same weight; section heads are the marquee. */
 h1 { font-family: var(--font-display); font-weight: 800; font-size: 38px; line-height: 1;
      letter-spacing: .005em; margin: 0 0 8px; }
-h2 { font-family: var(--font-display); font-weight: 800; font-size: 19px; line-height: 1.1;
-     text-transform: uppercase; letter-spacing: .06em; margin: 0 0 6px; }
+h2 { font-family: var(--font-display); font-weight: 800; font-size: 21px; line-height: 1.1;
+     letter-spacing: .02em; margin: 0 0 6px; }
 h3 { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.1;
      letter-spacing: .01em; margin: 0; }
 h1, h2, h3 { text-wrap: balance; }

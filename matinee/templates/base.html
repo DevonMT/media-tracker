@@ -22,22 +22,27 @@
 </head>
 <body>
 
-<header class="ds-bar">
-  <a class="ds-mark" href="https://devondoes.dev/">devondoes.dev</a>
+<a class="ds-skip" href="#main">Skip to Content</a>
+{# Bar v2, rendered here rather than upgraded in place by chrome.js (which only builds the menus and fills People and the avatar). Emblems come from the hub, as in every other app. #}
+<header class="ds-bar" data-app="matinee">
+  <a class="ds-mark" href="https://devondoes.dev/"><img src="https://devondoes.dev/emblems/hub.svg" alt="" width="26" height="26"><span>devondoes</span></a>
   <span class="ds-sep" aria-hidden="true">/</span>
-  <span class="ds-here">matinee</span>
+  <button class="ds-switch" type="button" aria-haspopup="menu" aria-expanded="false"><img src="https://devondoes.dev/emblems/matinee.svg" alt="" width="22" height="22"><span>Matinee</span></button>
   <span class="ds-fill"></span>
-  <span class="ds-who"></span>
-  <button class="ds-out" type="button" hidden>Sign out</button>
+  <nav class="ds-nav" aria-label="Site">
+    <a class="ds-people" href="https://devondoes.dev/people" aria-label="People"></a>
+    <button class="ds-me" type="button" aria-haspopup="menu" aria-label="Account"></button>
+  </nav>
+  <button class="ds-theme" type="button" aria-haspopup="menu" aria-label="Theme" hidden></button>
 </header>
 
-<nav class="tabs"><div class="in">
+<nav class="tabs" aria-label="Matinee"><div class="in">
   {% for href, label in [('/', 'Watch'), ('/library', 'Library'), ('/circle', 'Circle'), ('/settings', 'Settings')] %}
     <a href="{{ href }}"{% if here == href %} aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
 </div></nav>
 
-<main>{% block body %}{% endblock %}</main>
+<main id="main">{% block body %}{% endblock %}</main>
 {# Page scripts go HERE, at the end of the body. recommend.html had put its
    script inside {% block title %}, which renders inside <title> — so it was
    never a script at all, it was the text of the browser tab. #}

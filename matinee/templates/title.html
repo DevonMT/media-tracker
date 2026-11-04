@@ -9,7 +9,7 @@
 {% if t.overview %}<p class="overview wide">{{ t.overview }}</p>{% endif %}
 
 <section class="band">
-  <h2>What you think</h2>
+  <h2>What You Think</h2>
   <form method="post" action="/title/{{ t.id }}/review" class="form">
     {% set mine = (reviews | selectattr('id', 'equalto', me.id) | list | first) %}
     <label class="field"><span>Rating</span>
@@ -30,7 +30,7 @@
 </section>
 
 <section class="band">
-  <h2>What others think</h2>
+  <h2>What Others Think</h2>
   {# The gap between these two numbers IS the privacy promise, shown rather
      than hidden: counted without being read. #}
   {% set others = reviews | rejectattr('id', 'equalto', me.id) | list %}

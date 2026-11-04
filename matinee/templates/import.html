@@ -40,7 +40,7 @@
   {% if preview.batch %}<p class="meta warn">Titles {{ preview.batch[0] }} to {{ preview.batch[1] }} of {{ preview.batch[2] }} in the file.{% if more %} File these, then upload the same file again for the next batch.{% endif %}</p>{% endif %}
 
   {% if preview.matched %}
-  <h2>Will be filed as seen ({{ preview.matched | length }})</h2>
+  <h2>Will Be Filed as Seen ({{ preview.matched | length }})</h2>
   <div class="rowlist">
     {% for m in preview.matched %}
     <label class="rowitem">
@@ -55,7 +55,7 @@
   {% if preview.already %}<p class="meta">{{ preview.already }} more are already in your library and were left alone.</p>{% endif %}
 
   {% if preview.unmatched %}
-  <h2>No TMDB match ({{ preview.unmatched | length }})</h2>
+  <h2>No TMDB Match ({{ preview.unmatched | length }})</h2>
   <p class="meta">Left unticked: TMDB had no title named exactly this, and a guess would hide the wrong film.
      Tick any to file them as local titles, or find them with <a href="/add">Add a title</a>.</p>
   <div class="rowlist">
