@@ -35,6 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
 from matinee import blend, netflix, store  # noqa: E402
+from matinee.nonul import RefuseNul  # noqa: E402
 import ai  # noqa: E402
 import tmdb  # noqa: E402
 
@@ -50,6 +51,11 @@ if not GATEWAY_TOKEN:
     # missing variable would otherwise look exactly like a working gate.
     print("matinee: GATEWAY_TOKEN is unset - identity headers are TRUSTED "
           "FROM ANYONE who can reach this port", file=sys.stderr, flush=True)
+
+
+# Added BEFORE the gateway check, so it sits inside it: a request that did not
+# come through the gateway is refused without its body being read.
+app.add_middleware(RefuseNul)
 
 
 @app.middleware("http")

@@ -6,7 +6,9 @@ import os
 import unittest
 from unittest import mock
 
-os.environ.setdefault("GATEWAY_TOKEN", "test")  # quiet the boot warning
+# Same as the other test files: with a token set here, whichever file pytest
+# imports first decides it for all of them and the TestClient suites get a 403.
+os.environ.setdefault("GATEWAY_TOKEN", "")  # no gateway in tests
 
 from fastapi import HTTPException  # noqa: E402
 from starlette.requests import Request  # noqa: E402
