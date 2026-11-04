@@ -122,6 +122,7 @@
   var ICON = {
     home: SVG('0 0 24 24', 1.8, '<path d="M3.5 10.5 12 3.8l8.5 6.7V20a.9.9 0 0 1-.9.9h-4.8v-6h-5.6v6H4.4a.9.9 0 0 1-.9-.9z"/>'),
     people: SVG('0 0 24 24', 1.8, '<circle cx="9" cy="8" r="3.4"/><path d="M2.8 19.5c.6-3.4 3.2-5.3 6.2-5.3s5.6 1.9 6.2 5.3"/><path d="M15.5 4.9a3.3 3.3 0 0 1 0 6.3M17.6 14.6c1.9.7 3.2 2.4 3.6 4.9"/>'),
+    messages: SVG('0 0 24 24', 1.8, '<path d="M4.5 4.5h15a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H10l-4.5 3.8V16.5h-1a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/>'),
     light: SVG('0 0 24 24', 1.9, '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'),
     dark: SVG('0 0 24 24', 1.9, '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
     system: SVG('0 0 24 24', 1.9, '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>'),
@@ -421,8 +422,9 @@
     m.appendChild(home);
     m.appendChild(ppl);
     // Until /people holds the inbox as a tab (#560), the inbox needs its own way in.
-    var msgs = item('a', 'Messages', hubUrl('/messages'));
-    msgs.insertBefore(el('span', 'ds-mi-gap'), msgs.firstChild);
+    var msgs = item('a', null, hubUrl('/messages'));
+    msgs.innerHTML = ICON.messages;
+    msgs.appendChild(el('span', null, 'Messages'));
     m.appendChild(msgs);
     if (!me) return m;
 

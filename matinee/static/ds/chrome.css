@@ -519,11 +519,6 @@ span.ds-switch {
   flex: 0 0 auto;
 }
 
-.ds-mi-gap {
-  width: 22px;
-  flex: 0 0 auto;
-}
-
 .ds-mi > svg {
   width: 20px;
   height: 20px;
