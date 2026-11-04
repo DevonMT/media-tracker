@@ -137,7 +137,7 @@
   var NAMES = {
     backlog: 'Backlog', cos: 'Morning Brief', delve: 'Delve', jobs: 'Jobs', keep: 'Keep',
     ledger: 'Ledger', matinee: 'Matinee', mise: 'Mise', playfinder: 'Playfinder',
-    rumpus: 'Rumpus', solitaire: 'Solitaire',
+    patchboard: 'Patchboard', rumpus: 'Rumpus', solitaire: 'Solitaire',
   };
 
   var el = function (tag, cls, text) {

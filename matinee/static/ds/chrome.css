@@ -252,9 +252,14 @@
   flex: 0 0 auto;
 }
 
+/* The ellipsis needs overflow: hidden, which clips to the line box, and the
+   button's line-height of 1 is shorter than the face's descenders: the "g"
+   in "Morning Brief" lost its tail. The button is a fixed 40px, so a taller
+   line here moves nothing. */
 .ds-switch span {
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 button.ds-switch::after {
