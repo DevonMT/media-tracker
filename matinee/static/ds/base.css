@@ -88,3 +88,49 @@ video {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Field hint: an example or format note that shows only while its field has
+ * focus. Replaces sample text inside the field (a placeholder), which reads as
+ * a value already filled in. Most fields need no hint at all; add one only
+ * where the format is not obvious (an amount, a code, a date shorthand).
+ *
+ *   <div class="ds-field">
+ *     <label for="amt">Amount</label>
+ *     <input id="amt" aria-describedby="amt-hint">
+ *     <p class="ds-hint" id="amt-hint">Example: 12.50</p>
+ *   </div>
+ *
+ * Why this shape:
+ * - The hint sits OUTSIDE the <label>. Inside it, the hint text becomes part of
+ *   the field's name and a screen reader says it twice.
+ * - `aria-describedby` gives a screen reader the hint when the field is
+ *   focused. Opacity (not display:none) hides it, so the text stays in the
+ *   accessibility tree; the link would also work with display:none.
+ * - The line keeps its space while hidden, so focusing a field never moves the
+ *   button below it (a tap that shifts the layout can miss the button). An
+ *   empty hint takes no space, for text a script fills in per mode.
+ * - `.ds-field` is only the wrapper `:focus-within` needs. It sets no layout.
+ */
+.ds-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ds-field:focus-within .ds-hint {
+  opacity: 1;
+}
+
+.ds-hint:empty {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-hint {
+    transition: none;
+  }
+}
