@@ -46,7 +46,7 @@ class BrokerError(RuntimeError):
     # Broker codes that are a decision rather than a fault. Anything else it
     # returns is treated as a failure, so a new code degrades to "try again".
     REFUSALS = {
-        "budget_exceeded": "Recommendations are taking a break until next month. "
+        "budget_exceeded": "Recommendations are paused until next month. "
                            "Your library and reviews work as usual.",
         "user_budget_exceeded": "You've used this month's recommendation allowance. "
                                 "It refills at the start of next month.",
