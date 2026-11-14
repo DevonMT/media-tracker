@@ -11,7 +11,7 @@
   {#  Lite is one person and no model: TMDB's picks from what you rated
       highest. The group controls would promise a blend it does not do. #}
   {% if variant == 'full' %}
-  <h1>Recommend for</h1>
+  <h1>Recommend For</h1>
   <div class="chips">
     {% for p in circle %}
       <label class="chip{% if p.id in chosen %} on{% endif %}">
@@ -45,16 +45,17 @@
 
   {% else %}
   <h1>More Like What You Liked</h1>
+  <p class="sub">Picking for several people at once, using everyone's taste, is part of Plus.</p>
   {% endif %}
 
   <div class="row">
     {% if variant == 'full' %}<label class="inline"><input type="checkbox" name="rewatch" {% if rewatch %}checked{% endif %}> Allow things somebody has already seen</label>{% endif %}
-    <button type="submit" class="find"><span class="spin" aria-hidden="true"></span><span class="find-label">Find something</span></button>
+    <button type="submit" class="find"><span class="spin" aria-hidden="true"></span><span class="find-label">Find Something</span></button>
   </div>
   {#  A model call takes tens of seconds, and a button that does nothing
       visible for that long reads as broken, so the second tap goes in. #}
   <p class="working" role="status" hidden>{% if variant == 'full' %}Asking the recommender. This can take a
-    minute{% else %}Checking what is on your services. This can take a few seconds{% endif %}<span class="elapsed"></span>.</p>
+    minute{% else %}Checking what's on your services. This takes a few seconds{% endif %}<span class="elapsed"></span>.</p>
 </form>
 
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
@@ -109,10 +110,10 @@
         <button class="mini" type="submit">Keep</button>
       </form>
       <button class="mini ghost watch-open" type="button" aria-expanded="false"
-              aria-controls="seen-{{ loop.index }}">Seen it</button>
+              aria-controls="seen-{{ loop.index }}">Seen It</button>
       <form method="post" action="/pick/dismiss" class="in-place">
         {{ title_fields(p) }}
-        <button class="mini quiet" type="submit">Not for me</button>
+        <button class="mini quiet" type="submit">Not for Me</button>
       </form>
     </div>
     <form method="post" action="/pick/seen" class="watched in-place"
@@ -129,7 +130,7 @@
 
 {% if just_watched %}
 <p class="note">Saved. <strong>{{ just_watched.name }}</strong> is in your library
-  with your review — <a href="/title/{{ just_watched.id }}">see or change it</a>.</p>
+  with your review. <a href="/title/{{ just_watched.id }}">See or change it</a>.</p>
 {% endif %}
 
 {% include '_kept.html' %}

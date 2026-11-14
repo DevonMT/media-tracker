@@ -181,7 +181,7 @@ class Flow(unittest.TestCase):
         r = self.client.post("/import/confirm", headers=self.h, data=form)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.store.ensure_review.call_count, len(picks))
-        self.assertEqual(r.text.count("Look at the next batch"), 0)   # a short file has no next batch
+        self.assertEqual(r.text.count("Look at the Next Batch"), 0)   # a short file has no next batch
         # Unrated: only ensure_review, never set_review, so no rating is invented
         # and an existing one is never overwritten.
         self.store.set_review.assert_not_called()

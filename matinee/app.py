@@ -113,7 +113,7 @@ def me(request):
     showing one person another person's library."""
     email = request.headers.get("x-platform-user")
     if not email:
-        raise HTTPException(status_code=401, detail="No identity from the gateway.")
+        raise HTTPException(status_code=401, detail="You've been signed out. Sign in again to keep going.")
     who = store.person_by_email(email)
     if not who:
         raise HTTPException(status_code=403, detail="No account for %s." % email)
@@ -412,9 +412,9 @@ def add_form(request: Request, q: str | None = None):
     if q:
         try:
             hits = tmdb.search(q, limit=10)
-        except Exception as exc:
+        except Exception:
             return page(request, "add.html", who=who, q=q, hits=[],
-                        note="TMDB search failed (%s). You can still add it by hand." % exc)
+                        note="Movie search isn't answering right now. You can still add it by hand.")
     return page(request, "add.html", who=who, q=q or "", hits=hits, note=None)
 
 

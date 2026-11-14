@@ -2,7 +2,7 @@
 {% block title %}Import · Matinee{% endblock %}
 {% block body %}
 <div class="pagehead">
-  <h1>Import from Netflix</h1>
+  <h1>Import From Netflix</h1>
   <p>Seed your library with what you have already watched, so it stops
      turning up as a pick. Nothing is filed until you have looked.</p>
 </div>
@@ -14,7 +14,7 @@
   <input type="hidden" name="profile" value="{{ more.profile }}">
   <label class="field"><span>ViewingActivity.csv</span>
     <input type="file" name="file" accept=".csv,text/csv" required></label>
-  <button type="submit">Look at the next batch</button>
+  <button type="submit">Look at the Next Batch</button>
 </form>
 {% endmacro %}
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
@@ -57,7 +57,7 @@
   {% if preview.unmatched %}
   <h2>No TMDB Match ({{ preview.unmatched | length }})</h2>
   <p class="meta">Left unticked: TMDB had no title named exactly this, and a guess would hide the wrong film.
-     Tick any to file them as local titles, or find them with <a href="/add">Add a title</a>.</p>
+     Tick any to file them as local titles, or find them with <a href="/add">Add a Title</a>.</p>
   <div class="rowlist">
     {% for u in preview.unmatched %}
     <label class="rowitem dim">
@@ -71,8 +71,8 @@
   {% endif %}
 
   {% if preview.matched or preview.unmatched %}
-  <p><button type="submit">File the ticked titles as seen</button>
-     <a href="/import"><button class="ghost" type="button">Start over</button></a></p>
+  <p><button type="submit">File the Ticked Titles as Seen</button>
+     <a href="/import"><button class="ghost" type="button">Start Over</button></a></p>
   {% else %}
   <p class="empty">Nothing new in that file. <a href="/import">Try another.</a></p>
   {% endif %}
@@ -81,7 +81,7 @@
 
 {% else %}
 <details class="form" open>
-  <summary>Get your file from Netflix</summary>
+  <summary>Get Your File From Netflix</summary>
   <div class="inner">
     <p class="meta">On netflix.com: Account, then your profile, then Viewing activity,
        then “Download all” at the bottom. Upload that ViewingActivity.csv here.</p>
@@ -95,7 +95,7 @@
       <input name="profile" aria-describedby="profile-hint"></label>
     <p class="ds-hint" id="profile-hint">Imports only this profile. Blank imports all of them.</p>
   </div>
-  <button type="submit">Look at it</button>
+  <button type="submit">Look at It</button>
 </form>
 {% endif %}
 {% endblock %}

@@ -304,7 +304,7 @@ class TestBrokerErrorMessages(unittest.TestCase):
             "error": "budget_exceeded",
             "detail": "matinee has spent $5.0100 of its $5.00 monthly budget"}))
         self.assertEqual((exc.kind, exc.code), ("refused", "budget_exceeded"))
-        self.assertIn("budget", exc.public_message())
+        self.assertIn("next month", exc.public_message())
         self.assertNotIn("Try again", exc.public_message())
         self.assertNoInternals(exc)
 

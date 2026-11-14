@@ -46,10 +46,10 @@ class BrokerError(RuntimeError):
     # Broker codes that are a decision rather than a fault. Anything else it
     # returns is treated as a failure, so a new code degrades to "try again".
     REFUSALS = {
-        "budget_exceeded": "Matinee's AI budget is spent for this month, so "
-                           "recommendations are paused until it resets.",
-        "user_budget_exceeded": "You've used your share of the AI budget this "
-                                "month, so recommendations are paused until it resets.",
+        "budget_exceeded": "Recommendations are taking a break until next month. "
+                           "Your library and reviews work as usual.",
+        "user_budget_exceeded": "You've used this month's recommendation allowance. "
+                                "It refills at the start of next month.",
         "max_not_permitted": "Recommendations are switched off for Matinee right now.",
         "ai_disabled": "Recommendations are switched off for Matinee right now.",
         "unknown_app": "Recommendations are switched off for Matinee right now.",

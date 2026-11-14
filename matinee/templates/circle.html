@@ -4,8 +4,8 @@
 {% block body %}
 <div class="pagehead">
   <h1>Circle</h1>
-  <p>Being able to <em>reach</em> Matinee is a platform grant. Whose taste is
-     <em>counted</em> in a recommendation is this, and only they can grant it.</p>
+  <p>Your circle is whose taste counts when you ask for picks. Everyone decides
+     for themselves whether to share theirs.</p>
 </div>
 {% if note %}<p class="note">{{ note }}</p>{% endif %}
 
@@ -54,7 +54,7 @@
   {% endif %}
 
   <details class="form">
-    <summary>{% if friends %}Or share with an address{% else %}Let somebody count your taste{% endif %}</summary>
+    <summary>{% if friends %}Or Share With an Address{% else %}Let Someone Count Your Taste{% endif %}</summary>
     <div class="inner">
       <form method="post" action="/circle">
         <label class="field"><span>Their address on devondoes.dev</span>

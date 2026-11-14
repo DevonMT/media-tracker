@@ -421,5 +421,5 @@ def more_like_this(viewer_id, tmdb, want=5):
             break
     picks = picks[:want]
     return {"picks": picks,
-            "note": None if picks else "Nothing new turned up on your services. "
-                                       "Rate a few more titles and try again."}
+            "note": None if picks else "Nothing new on your services right now. "
+                                       "Rate a few more titles and we'll look again."}
